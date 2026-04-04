@@ -1,0 +1,20 @@
+# Android build files
+FMC777/build/
+FMC777/app/build/
+FMC737/build/
+FMC737/app/build/
+*.iml
+.gradle/
+.idea/
+local.properties
+
+# Python
+__pycache__/
+*.pyc
+dist/
+build/
+*.spec
+
+# Logs
+FlightPadFMC_log.txt
+FlightPadFMC_log_old.txt
