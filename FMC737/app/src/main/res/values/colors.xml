@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="color_primary">#0066cc</color>
+    <color name="color_primary_dark">#0052a3</color>
+    <color name="color_accent">#0066cc</color>
+    
+    <color name="cdu_white">#FFFFFF</color>
+    <color name="cdu_cyan">#00FFFF</color>
+    <color name="cdu_green">#00FF00</color>
+    <color name="cdu_magenta">#FF00FF</color>
+    <color name="cdu_amber">#FFBF00</color>
+    <color name="cdu_red">#FF0000</color>
+    
+    <color name="status_background">#AA000000</color>
+    <color name="status_text">#FFFF00</color>
+    <color name="instruction_text">#FFFFFF</color>
+    <color name="calibration_dot">#FF0000</color>
+    <color name="calibration_label">#FFFF00</color>
+    
+    <color name="skin_background">#B48C32</color>
+    <color name="screen_background">#000000</color>
+</resources>

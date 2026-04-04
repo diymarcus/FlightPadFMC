@@ -1,0 +1,77 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.virtualfmc.fmc777"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="19"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:4:5-66
+11-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:4:22-64
+12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+12-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:5:5-78
+12-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:5:22-76
+13    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+13-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:6:5-75
+13-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:6:22-73
+14    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+14-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:7:5-85
+14-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:7:22-83
+15    <uses-permission android:name="android.permission.VIBRATE" />
+15-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:8:5-65
+15-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:8:22-63
+16
+17    <application
+17-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:10:5-34:19
+18        android:allowBackup="true"
+18-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:11:9-35
+19        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+19-->[androidx.core:core:1.0.0] C:\Users\SilenceArt\.gradle\caches\8.10.2\transforms\bff3d3e13756324f24c74ee882bb16bd\transformed\core-1.0.0\AndroidManifest.xml:22:18-86
+20        android:debuggable="true"
+21        android:extractNativeLibs="true"
+22        android:icon="@mipmap/ic_launcher"
+22-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:12:9-43
+23        android:label="777FMCPad"
+23-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:13:9-34
+24        android:largeHeap="true"
+24-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:14:9-33
+25        android:testOnly="true"
+26        android:theme="@style/Theme.AppCompat.NoActionBar" >
+26-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:15:9-59
+27        <activity
+27-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:17:9-26:20
+28            android:name="com.virtualfmc.fmc777.MainActivity"
+28-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:18:13-41
+29            android:configChanges="orientation|screenSize|keyboardHidden"
+29-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:21:13-74
+30            android:exported="true"
+30-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:19:13-36
+31            android:screenOrientation="portrait" >
+31-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:20:13-49
+32            <intent-filter>
+32-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:22:13-25:29
+33                <action android:name="android.intent.action.MAIN" />
+33-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:23:17-68
+33-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:23:25-66
+34
+35                <category android:name="android.intent.category.LAUNCHER" />
+35-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:24:17-76
+35-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:24:27-74
+36            </intent-filter>
+37        </activity>
+38        <activity
+38-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:28:9-32:76
+39            android:name="com.virtualfmc.fmc777.CalibrateActivity777"
+39-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:29:13-49
+40            android:configChanges="orientation|screenSize|keyboardHidden"
+40-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:32:13-74
+41            android:exported="true"
+41-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:30:13-36
+42            android:screenOrientation="portrait" />
+42-->E:\NextCloud\FlightPadFMC\FMC777\app\src\main\AndroidManifest.xml:31:13-49
+43    </application>
+44
+45</manifest>

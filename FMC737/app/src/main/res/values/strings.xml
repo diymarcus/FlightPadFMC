@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FlightPadFMC</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_connected">Connected - PMDG 777</string>
+    <string name="status_disconnected">Disconnected - reconnecting…</string>
+    <string name="status_error">Error - retrying…</string>
+    <string name="status_cannot_connect">Cannot connect - retrying…</string>
+    <string name="calibration_mode">CALIBRATION MODE</string>
+    <string name="done">DONE! Check Logcat for CALIBRATION tag.</string>
+    <string name="undo_last">UNDO LAST</string>
+    <string name="settings">Settings</string>
+    <string name="server_settings">Server Settings</string>
+    <string name="connection_mode">Connection Mode</string>
+    <string name="auto_discovery">Auto-Discovery (mDNS)</string>
+    <string name="manual_ip">Manual IP Address</string>
+    <string name="server_ip_address">Server IP Address</string>
+    <string name="server_port">Server Port</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+</resources>

@@ -1,0 +1,38 @@
+[
+    {
+        "merged": "com.virtualfmc.fmc777.app-debug-7:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.virtualfmc.fmc777.app-main-9:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.virtualfmc.fmc777.app-debug-7:/drawable_cdu_skin777.png.flat",
+        "source": "com.virtualfmc.fmc777.app-main-9:/drawable/cdu_skin777.png"
+    },
+    {
+        "merged": "com.virtualfmc.fmc777.app-debug-7:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.virtualfmc.fmc777.app-main-9:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.virtualfmc.fmc777.app-debug-7:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.virtualfmc.fmc777.app-main-9:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.virtualfmc.fmc777.app-debug-7:/layout_activity_main.xml.flat",
+        "source": "com.virtualfmc.fmc777.app-main-9:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.virtualfmc.fmc777.app-debug-7:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.virtualfmc.fmc777.app-main-9:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.virtualfmc.fmc777.app-debug-7:/layout_dialog_settings.xml.flat",
+        "source": "com.virtualfmc.fmc777.app-main-9:/layout/dialog_settings.xml"
+    },
+    {
+        "merged": "com.virtualfmc.fmc777.app-debug-7:/raw_button_click.wav.flat",
+        "source": "com.virtualfmc.fmc777.app-main-9:/raw/button_click.wav"
+    },
+    {
+        "merged": "com.virtualfmc.fmc777.app-debug-7:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.virtualfmc.fmc777.app-main-9:/mipmap-xhdpi/ic_launcher.png"
+    }
+]

@@ -1,0 +1,10 @@
+com.virtualfmc.fmc777.app-appcompat-1.0.0-0 C:\Users\SilenceArt\.gradle\caches\8.10.2\transforms\6eea6c9e82114477ae2019c6cafa605b\transformed\appcompat-1.0.0\res
+com.virtualfmc.fmc777.app-coordinatorlayout-1.0.0-1 C:\Users\SilenceArt\.gradle\caches\8.10.2\transforms\a0657c5669c276ce28f42f8e6a750120\transformed\coordinatorlayout-1.0.0\res
+com.virtualfmc.fmc777.app-core-1.0.0-2 C:\Users\SilenceArt\.gradle\caches\8.10.2\transforms\bff3d3e13756324f24c74ee882bb16bd\transformed\core-1.0.0\res
+com.virtualfmc.fmc777.app-pngs-3 E:\NextCloud\FlightPadFMC\FMC777\app\build\generated\res\pngs\debug
+com.virtualfmc.fmc777.app-resValues-4 E:\NextCloud\FlightPadFMC\FMC777\app\build\generated\res\resValues\debug
+com.virtualfmc.fmc777.app-packageDebugResources-5 E:\NextCloud\FlightPadFMC\FMC777\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.virtualfmc.fmc777.app-packageDebugResources-6 E:\NextCloud\FlightPadFMC\FMC777\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.virtualfmc.fmc777.app-debug-7 E:\NextCloud\FlightPadFMC\FMC777\app\build\intermediates\merged_res\debug\mergeDebugResources
+com.virtualfmc.fmc777.app-debug-8 E:\NextCloud\FlightPadFMC\FMC777\app\src\debug\res
+com.virtualfmc.fmc777.app-main-9 E:\NextCloud\FlightPadFMC\FMC777\app\src\main\res

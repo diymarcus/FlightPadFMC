@@ -1,0 +1,11 @@
+com.virtualfmc.fmc737.app-support-compat-28.0.0-0 C:\Users\SilenceArt\.gradle\caches\transforms-3\14283383c381028b423efb524c443ff2\transformed\support-compat-28.0.0\res
+com.virtualfmc.fmc737.app-coordinatorlayout-28.0.0-1 C:\Users\SilenceArt\.gradle\caches\transforms-3\1ca122a524e9d49d6cf775e1dfae049f\transformed\coordinatorlayout-28.0.0\res
+com.virtualfmc.fmc737.app-appcompat-v7-28.0.0-2 C:\Users\SilenceArt\.gradle\caches\transforms-3\5f6158c0231d4e79dcdfed7a1d761b71\transformed\appcompat-v7-28.0.0\res
+com.virtualfmc.fmc737.app-pngs-3 E:\NextCloud\FlightPadFMC\FMC737\app\build\generated\res\pngs\debug
+com.virtualfmc.fmc737.app-resValues-4 E:\NextCloud\FlightPadFMC\FMC737\app\build\generated\res\resValues\debug
+com.virtualfmc.fmc737.app-rs-5 E:\NextCloud\FlightPadFMC\FMC737\app\build\generated\res\rs\debug
+com.virtualfmc.fmc737.app-mergeDebugResources-6 E:\NextCloud\FlightPadFMC\FMC737\app\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
+com.virtualfmc.fmc737.app-mergeDebugResources-7 E:\NextCloud\FlightPadFMC\FMC737\app\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
+com.virtualfmc.fmc737.app-merged_res-8 E:\NextCloud\FlightPadFMC\FMC737\app\build\intermediates\merged_res\debug
+com.virtualfmc.fmc737.app-debug-9 E:\NextCloud\FlightPadFMC\FMC737\app\src\debug\res
+com.virtualfmc.fmc737.app-main-10 E:\NextCloud\FlightPadFMC\FMC737\app\src\main\res

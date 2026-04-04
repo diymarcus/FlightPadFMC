@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme (Support Library for API 19) -->
+    <style name="Theme.FlightPadFMC" parent="Theme.AppCompat.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/color_primary</item>
+        <item name="colorPrimaryDark">@color/color_primary_dark</item>
+        <item name="colorAccent">@color/color_accent</item>
+        
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/color_primary_dark</item>
+        <item name="android:windowBackground">#000000</item>
+    </style>
+</resources>

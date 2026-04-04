@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.virtualfmc.fmc737'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.virtualfmc.fmc737"
+        minSdk 19
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    dexOptions {
+        javaMaxHeapSize "4g"
+        preDexLibraries true
+        threadCount 4
+    }
+}
+
+dependencies {
+    // Android Support Library (for API 19 compatibility)
+    implementation 'com.android.support:appcompat-v7:28.0.0'
+    implementation 'com.android.support:support-compat:28.0.0'
+
+    // WebSocket client (nv-websocket-client)
+    implementation 'com.neovisionaries:nv-websocket-client:2.14'
+
+    // JSON handling
+    implementation 'org.json:json:20231013'
+
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'com.android.support.test:runner:1.0.2'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+}

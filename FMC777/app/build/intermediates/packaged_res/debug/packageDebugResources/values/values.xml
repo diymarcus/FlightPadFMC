@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="calibration_dot">#FF0000</color>
+    <color name="calibration_label">#FFFF00</color>
+    <color name="cdu_amber">#FFBF00</color>
+    <color name="cdu_cyan">#00FFFF</color>
+    <color name="cdu_green">#00FF00</color>
+    <color name="cdu_magenta">#FF00FF</color>
+    <color name="cdu_red">#FF0000</color>
+    <color name="cdu_white">#FFFFFF</color>
+    <color name="color_accent">#0066cc</color>
+    <color name="color_primary">#0066cc</color>
+    <color name="color_primary_dark">#0052a3</color>
+    <color name="instruction_text">#FFFFFF</color>
+    <color name="screen_background">#000000</color>
+    <color name="skin_background">#B48C32</color>
+    <color name="status_background">#AA000000</color>
+    <color name="status_text">#FFFF00</color>
+    <string name="app_name">777FMCPad</string>
+    <string name="auto_discovery">Auto-Discovery (mDNS)</string>
+    <string name="calibration_mode">CALIBRATION MODE</string>
+    <string name="cancel">Cancel</string>
+    <string name="connection_mode">Connection Mode</string>
+    <string name="done">DONE! Check Logcat for CALIBRATION tag.</string>
+    <string name="manual_ip">Manual IP Address</string>
+    <string name="save">Save</string>
+    <string name="server_ip_address">Server IP Address</string>
+    <string name="server_port">Server Port</string>
+    <string name="server_settings">Server Settings</string>
+    <string name="settings">Settings</string>
+    <string name="status_cannot_connect">Cannot connect - retrying…</string>
+    <string name="status_connected">Connected - PMDG 777</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_disconnected">Disconnected - reconnecting…</string>
+    <string name="status_error">Error - retrying…</string>
+    <string name="undo_last">UNDO LAST</string>
+    <style name="Theme.FlightPadFMC" parent="Theme.AppCompat.NoActionBar">
+        
+        <item name="colorPrimary">@color/color_primary</item>
+        <item name="colorPrimaryDark">@color/color_primary_dark</item>
+        <item name="colorAccent">@color/color_accent</item>
+        
+        
+        <item name="android:statusBarColor">@color/color_primary_dark</item>
+        <item name="android:windowBackground">#000000</item>
+    </style>
+</resources>
