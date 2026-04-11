@@ -1,20 +1,64 @@
-# Android build files
+# ── Keystore / signing secrets — NEVER commit ────────────────────────────
+KeyStore/
+*.jks
+*.keystore
+keystore.properties
+
+# ── Android build artifacts — all 4 app modules ──────────────────────────
 FMC777/build/
 FMC777/app/build/
 FMC737/build/
 FMC737/app/build/
+FBWA320/build/
+FBWA320/app/build/
+FMC777_OWN/build/
+FMC777_OWN/app/build/
+
+# ── Signed APK output — distributed via GitHub release assets only ───────
+FMC777/app/release/
+FMC737/app/release/
+FBWA320/app/release/
+FMC777_OWN/app/release/
+
+# ── FBWA320 working folder (skins, calibration notes, personal materials) ─
+FBWA320/CDUPIC/
+
+# ── Personal cockpit variant — private, do not publish ───────────────────
+FMC777_OWN/
+
+# ── Android / Gradle / IDE local state ───────────────────────────────────
 *.iml
 .gradle/
 .idea/
 local.properties
 
-# Python
+# ── Server source — distributed as .exe only, source stays private ──────
+server_gui.py
+server_gui_backup.py
+server_gui_old.py
+server_gui_test.py
+FlightPadFMCServer.spec
+
+# ── Python build output ─────────────────────────────────────────────────
 __pycache__/
 *.pyc
 dist/
 build/
 *.spec
 
-# Logs
+# ── External SDKs / upstream project clones (not ours to redistribute) ──
+WASM/
+iFly737MAX_SDK/
+
+# ── PMDG / iFly copyrighted SDK headers (must not redistribute) ─────────
+*.h
+
+# ── Personal notes / dev artifacts / old copies ─────────────────────────
+Notes.txt
+Project_old.md
+CDU_Images/
+Product/
+
+# ── Logs ────────────────────────────────────────────────────────────────
 FlightPadFMC_log.txt
 FlightPadFMC_log_old.txt

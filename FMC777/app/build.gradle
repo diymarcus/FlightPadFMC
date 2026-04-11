@@ -36,6 +36,12 @@ android {
         preDexLibraries true
         threadCount 4
     }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "777PMDG.apk"
+        }
+    }
 }
 
 dependencies {
@@ -46,9 +52,9 @@ dependencies {
     // WebSocket client (nv-websocket-client)
     implementation 'com.neovisionaries:nv-websocket-client:2.14'
     
-    // JSON handling
-    implementation 'org.json:json:20231013'
-    
+    // JSON handling: use Android's built-in org.json.* — no Maven dependency
+    // (org.json:json removed — conflicts with Android platform classes)
+
     // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'

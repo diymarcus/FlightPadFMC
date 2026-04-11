@@ -3,7 +3,6 @@ package com.virtualfmc.fmc777;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.*;
-import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -34,13 +33,13 @@ public class CDUView extends View {
     private final char[][] symbols = new char[CDU_ROWS][CDU_COLS];
     private final int[][] colors = new int[CDU_ROWS][CDU_COLS];
 
-    private String fmcPosition = "LEFT";
-    private String fmcDisplayText = "Left";
+    private float settingsX = 0.09561454f, settingsY = 0.02447295f;
+    private float closeX = 0.91020817f, closeY = 0.02447295f;
+    private float ledX = 0.8228679f, ledY = 0.5445661f;
 
-    private float settingsX = 0.7149f, settingsY = 0.0271f;
-    private float closeX = 0.8930f, closeY = 0.0271f;
-    private float fmcX = 0.2611f, fmcY = 0.0236f;
-    private float ledX = 0.8246f, ledY = 0.5469f;
+    // Screen rect calibration (TL + BR corners)
+    private float screenL = 0.14666007f, screenT = 0.07033213f;
+    private float screenR = 0.84544694f, screenB = 0.43650627f;
 
     private boolean ledState = false;
 
@@ -50,24 +49,14 @@ public class CDUView extends View {
     private final Paint screenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint fmcTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint ledBoxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint fallbackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
     private final RectF skinRectF = new RectF();
-    private final RectF iconRectF = new RectF();
     private final RectF screenRect = new RectF();
     private final RectF actualScreen = new RectF();
-    
+
     private BlurMaskFilter ledGlowFilter;
     private final Paint.FontMetrics fmcFontMetrics = new Paint.FontMetrics();
 
-    private Drawable settingsIcon;
-    private Drawable closeIcon;
-
-    private float iconSize;
-    private float fmcBoxPadding;
-    private float fmcBoxHeight;
     private float ledWidth;
     private float ledHeight;
     private float cellW;
@@ -165,22 +154,8 @@ public class CDUView extends View {
         boxPaint.setColor(Color.argb(200, 40, 40, 40));
         boxPaint.setStyle(Paint.Style.FILL);
 
-        fmcTextPaint.setColor(Color.WHITE);
-        fmcTextPaint.setTextAlign(Paint.Align.CENTER);
-        fmcTextPaint.setTypeface(Typeface.create("Arial", Typeface.BOLD_ITALIC));
-
         ledBoxPaint.setStyle(Paint.Style.FILL);
         ledGlowFilter = new BlurMaskFilter(5, BlurMaskFilter.Blur.NORMAL);
-
-        fallbackPaint.setColor(Color.YELLOW);
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            settingsIcon = context.getResources().getDrawable(android.R.drawable.ic_menu_preferences, context.getTheme());
-            closeIcon = context.getResources().getDrawable(android.R.drawable.ic_menu_close_clear_cancel, context.getTheme());
-        } else {
-            settingsIcon = context.getResources().getDrawable(android.R.drawable.ic_menu_preferences);
-            closeIcon = context.getResources().getDrawable(android.R.drawable.ic_menu_close_clear_cancel);
-        }
 
         setOnTouchListener(new View.OnTouchListener() {
             @Override
@@ -221,8 +196,6 @@ public class CDUView extends View {
                                 keyListener.onUIAction("SETTINGS_BTN");
                             } else if (foundArea.key.equals("CLOSE_BTN")) {
                                 keyListener.onUIAction("CLOSE_BTN");
-                            } else if (foundArea.key.equals("FMC_LEFT_TEXT")) {
-                                keyListener.onUIAction("FMC_LEFT_TEXT");
                             } else {
                                 keyListener.onKeyPress(foundArea.key);
                             }
@@ -258,16 +231,21 @@ public class CDUView extends View {
                 float sY = prefs.getFloat("SETTINGS_BTN_y", -1f);
                 float cX = prefs.getFloat("CLOSE_BTN_x", -1f);
                 float cY = prefs.getFloat("CLOSE_BTN_y", -1f);
-                float fX = prefs.getFloat("FMC_LEFT_TEXT_x", -1f);
-                float fY = prefs.getFloat("FMC_LEFT_TEXT_y", -1f);
-                float lX = prefs.getFloat("FMC_LED_x", -1f);
-                float lY = prefs.getFloat("FMC_LED_y", -1f);
+                float lX     = prefs.getFloat("FMC_LED_x",   -1f);
+                float lY     = prefs.getFloat("FMC_LED_y",   -1f);
+                float sTL_x  = prefs.getFloat("SCREEN_TL_x", -1f);
+                float sTL_y  = prefs.getFloat("SCREEN_TL_y", -1f);
+                float sBR_x  = prefs.getFloat("SCREEN_BR_x", -1f);
+                float sBR_y  = prefs.getFloat("SCREEN_BR_y", -1f);
 
-                if (isValidCalibration(sX, sY, cX, cY, fX, fY, lX, lY)) {
+                if (isValidCalibration(sX, sY, cX, cY, lX, lY)) {
                     settingsX = sX; settingsY = sY;
                     closeX = cX; closeY = cY;
-                    fmcX = fX; fmcY = fY;
                     ledX = lX; ledY = lY;
+                    if (isValidCalibration(sTL_x, sTL_y, sBR_x, sBR_y)) {
+                        screenL = sTL_x; screenT = sTL_y;
+                        screenR = sBR_x; screenB = sBR_y;
+                    }
                 } else {
                     resetToSafeDefaults();
                 }
@@ -304,10 +282,11 @@ public class CDUView extends View {
     }
 
     private void resetToSafeDefaults() {
-        settingsX = 0.7149f; settingsY = 0.0271f;
-        closeX = 0.8930f; closeY = 0.0271f;
-        fmcX = 0.2611f; fmcY = 0.0236f;
-        ledX = 0.8246f; ledY = 0.5469f;
+        settingsX = 0.09561454f; settingsY = 0.02447295f;
+        closeX = 0.91020817f; closeY = 0.02447295f;
+        ledX = 0.8228679f; ledY = 0.5445661f;
+        screenL = 0.14666007f; screenT = 0.07033213f;
+        screenR = 0.84544694f; screenB = 0.43650627f;
     }
 
     private Bitmap decodeSampledBitmap(Context context, int resId, int reqSize) {
@@ -363,12 +342,6 @@ public class CDUView extends View {
         return hapticEnabled;
     }
 
-    public void setFmcPosition(String position) {
-        fmcPosition = position.toUpperCase();
-        fmcDisplayText = fmcPosition.substring(0, 1) + fmcPosition.substring(1).toLowerCase();
-        postInvalidate();
-    }
-
     public void setLedState(boolean isOn) {
         ledState = isOn;
         postInvalidate();
@@ -415,10 +388,6 @@ public class CDUView extends View {
         textPaint.setTextSize(cellH * 0.75f);
         textYOffset = cellH * 0.8f;
         
-        iconSize = h * 0.045f;
-        fmcTextPaint.setTextSize(h * 0.020f);
-        fmcBoxPadding = h * 0.006f;
-        fmcBoxHeight = h * 0.024f;
         
         ledWidth = h * 0.05f;
         ledHeight = h * 0.018f;
@@ -430,85 +399,85 @@ public class CDUView extends View {
 
         touchAreas.add(new TouchArea(settingsX - 0.04f, settingsY - 0.025f, settingsX + 0.04f, settingsY + 0.025f, "SETTINGS_BTN"));
         touchAreas.add(new TouchArea(closeX - 0.04f, closeY - 0.025f, closeX + 0.04f, closeY + 0.025f, "CLOSE_BTN"));
-        touchAreas.add(new TouchArea(fmcX - 0.06f, fmcY - 0.025f, fmcX + 0.06f, fmcY + 0.025f, "FMC_LEFT_TEXT"));
 
-        screenRect.set(0.1558f, 0.0750f, 0.8333f, 0.4246f);
+        // Screen area — from calibration (falls back to hardcoded defaults)
+        screenRect.set(screenL, screenT, screenR, screenB);
 
         String[] leftKeys  = {"LSK1L","LSK2L","LSK3L","LSK4L","LSK5L","LSK6L"};
         String[] rightKeys = {"LSK1R","LSK2R","LSK3R","LSK4R","LSK5R","LSK6R"};
-        float[] lskL_X = {0.0515f, 0.0559f, 0.0526f, 0.0559f, 0.0591f, 0.0559f};
-        float[] lskL_Y = {0.1313f, 0.1834f, 0.2356f, 0.2856f, 0.3398f, 0.3919f};
-        float[] lskR_X = {0.9397f, 0.9365f, 0.9365f, 0.9365f, 0.9332f, 0.9365f};
-        float[] lskR_Y = {0.1292f, 0.1834f, 0.2334f, 0.2877f, 0.3419f, 0.3919f};
+        float[] lskL_X = {0.060290247f, 0.05340007f, 0.057346556f, 0.05340007f, 0.057346556f, 0.057346556f};
+        float[] lskL_Y = {0.13249597f, 0.18277177f, 0.23488782f, 0.28891772f, 0.3410338f, 0.39318663f};
+        float[] lskR_X = {0.9416183f, 0.93964505f, 0.9416183f, 0.93964505f, 0.9416183f, 0.9386746f};
+        float[] lskR_Y = {0.12874186f, 0.18402314f, 0.2361392f, 0.28891772f, 0.3410338f, 0.39318663f};
         for (int i = 0; i < 6; i++) {
             touchAreas.add(new TouchArea(lskL_X[i] - 0.04f, lskL_Y[i] - 0.025f, lskL_X[i] + 0.04f, lskL_Y[i] + 0.025f, leftKeys[i]));
             touchAreas.add(new TouchArea(lskR_X[i] - 0.04f, lskR_Y[i] - 0.025f, lskR_X[i] + 0.04f, lskR_Y[i] + 0.025f, rightKeys[i]));
         }
 
-        touchAreas.add(new TouchArea(0.1190f, 0.4996f, 0.1990f, 0.5496f, "INIT"));
-        touchAreas.add(new TouchArea(0.2504f, 0.4996f, 0.3304f, 0.5496f, "RTE"));
-        touchAreas.add(new TouchArea(0.3699f, 0.5017f, 0.4499f, 0.5517f, "DEP ARR"));
-        touchAreas.add(new TouchArea(0.4925f, 0.4975f, 0.5725f, 0.5475f, "ALTN"));
-        touchAreas.add(new TouchArea(0.6120f, 0.4975f, 0.6920f, 0.5475f, "CRZ"));
+        touchAreas.add(new TouchArea(0.1194f, 0.5007f, 0.1994f, 0.5507f, "INIT"));
+        touchAreas.add(new TouchArea(0.2460f, 0.4988f, 0.3260f, 0.5488f, "RTE"));
+        touchAreas.add(new TouchArea(0.3657f, 0.5007f, 0.4457f, 0.5507f, "DEP ARR"));
+        touchAreas.add(new TouchArea(0.4943f, 0.5001f, 0.5743f, 0.5501f, "ALTN"));
+        touchAreas.add(new TouchArea(0.6190f, 0.4988f, 0.6990f, 0.5488f, "CRZ"));
 
-        touchAreas.add(new TouchArea(0.1190f, 0.5517f, 0.1990f, 0.6017f, "FIX"));
-        touchAreas.add(new TouchArea(0.2385f, 0.5538f, 0.3185f, 0.6038f, "LEGS"));
-        touchAreas.add(new TouchArea(0.3633f, 0.5538f, 0.4433f, 0.6038f, "HOLD"));
-        touchAreas.add(new TouchArea(0.4925f, 0.5538f, 0.5725f, 0.6038f, "FMC"));
-        touchAreas.add(new TouchArea(0.6120f, 0.5559f, 0.6920f, 0.6059f, "PROG"));
-        touchAreas.add(new TouchArea(0.7900f, 0.5580f, 0.8700f, 0.6080f, "EXEC"));
+        touchAreas.add(new TouchArea(0.1214f, 0.5579f, 0.2014f, 0.6079f, "FIX"));
+        touchAreas.add(new TouchArea(0.2460f, 0.5579f, 0.3260f, 0.6079f, "LEGS"));
+        touchAreas.add(new TouchArea(0.3687f, 0.5566f, 0.4487f, 0.6066f, "HOLD"));
+        touchAreas.add(new TouchArea(0.4914f, 0.5616f, 0.5714f, 0.6116f, "FMC"));
+        touchAreas.add(new TouchArea(0.6170f, 0.5585f, 0.6970f, 0.6085f, "PROG"));
+        touchAreas.add(new TouchArea(0.7829f, 0.5585f, 0.8629f, 0.6085f, "EXEC"));
 
-        touchAreas.add(new TouchArea(0.1190f, 0.6157f, 0.1990f, 0.6657f, "MENU"));
-        touchAreas.add(new TouchArea(0.2450f, 0.6122f, 0.3250f, 0.6622f, "NAV"));
-        touchAreas.add(new TouchArea(0.3894f, 0.6337f, 0.4694f, 0.6837f, "A"));
-        touchAreas.add(new TouchArea(0.4958f, 0.6324f, 0.5758f, 0.6824f, "B"));
-        touchAreas.add(new TouchArea(0.6022f, 0.6337f, 0.6822f, 0.6837f, "C"));
-        touchAreas.add(new TouchArea(0.6988f, 0.6324f, 0.7788f, 0.6824f, "D"));
-        touchAreas.add(new TouchArea(0.7998f, 0.6379f, 0.8798f, 0.6879f, "E"));
+        touchAreas.add(new TouchArea(0.1194f, 0.6175f, 0.1994f, 0.6675f, "MENU"));
+        touchAreas.add(new TouchArea(0.2431f, 0.6182f, 0.3231f, 0.6682f, "NAV"));
+        touchAreas.add(new TouchArea(0.3952f, 0.6370f, 0.4752f, 0.6870f, "A"));
+        touchAreas.add(new TouchArea(0.4982f, 0.6383f, 0.5782f, 0.6883f, "B"));
+        touchAreas.add(new TouchArea(0.6013f, 0.6364f, 0.6813f, 0.6864f, "C"));
+        touchAreas.add(new TouchArea(0.7014f, 0.6333f, 0.7814f, 0.6833f, "D"));
+        touchAreas.add(new TouchArea(0.8084f, 0.6364f, 0.8884f, 0.6864f, "E"));
 
-        touchAreas.add(new TouchArea(0.1158f, 0.6761f, 0.1958f, 0.7261f, "PREV PAGE"));
-        touchAreas.add(new TouchArea(0.2450f, 0.6741f, 0.3250f, 0.7241f, "NEXT PAGE"));
-        touchAreas.add(new TouchArea(0.3916f, 0.6963f, 0.4716f, 0.7463f, "F"));
-        touchAreas.add(new TouchArea(0.4958f, 0.6900f, 0.5758f, 0.7400f, "G"));
-        touchAreas.add(new TouchArea(0.5957f, 0.6921f, 0.6757f, 0.7421f, "H"));
-        touchAreas.add(new TouchArea(0.6988f, 0.6942f, 0.7788f, 0.7442f, "I"));
-        touchAreas.add(new TouchArea(0.7965f, 0.6900f, 0.8765f, 0.7400f, "J"));
+        touchAreas.add(new TouchArea(0.1214f, 0.6810f, 0.2014f, 0.7310f, "PREV PAGE"));
+        touchAreas.add(new TouchArea(0.2431f, 0.6816f, 0.3231f, 0.7316f, "NEXT PAGE"));
+        touchAreas.add(new TouchArea(0.3952f, 0.6948f, 0.4752f, 0.7448f, "F"));
+        touchAreas.add(new TouchArea(0.4982f, 0.6948f, 0.5782f, 0.7448f, "G"));
+        touchAreas.add(new TouchArea(0.6023f, 0.6948f, 0.6823f, 0.7448f, "H"));
+        touchAreas.add(new TouchArea(0.7014f, 0.6960f, 0.7814f, 0.7460f, "I"));
+        touchAreas.add(new TouchArea(0.8054f, 0.6929f, 0.8854f, 0.7429f, "J"));
 
-        touchAreas.add(new TouchArea(0.0875f, 0.7505f, 0.1675f, 0.8005f, "1"));
-        touchAreas.add(new TouchArea(0.1885f, 0.7546f, 0.2685f, 0.8046f, "2"));
-        touchAreas.add(new TouchArea(0.2884f, 0.7526f, 0.3684f, 0.8026f, "3"));
-        touchAreas.add(new TouchArea(0.3916f, 0.7546f, 0.4716f, 0.8046f, "K"));
-        touchAreas.add(new TouchArea(0.4958f, 0.7505f, 0.5758f, 0.8005f, "L"));
-        touchAreas.add(new TouchArea(0.6022f, 0.7484f, 0.6822f, 0.7984f, "M"));
-        touchAreas.add(new TouchArea(0.7021f, 0.7484f, 0.7821f, 0.7984f, "N"));
-        touchAreas.add(new TouchArea(0.7998f, 0.7505f, 0.8798f, 0.8005f, "O"));
+        touchAreas.add(new TouchArea(0.0919f, 0.7557f, 0.1719f, 0.8057f, "1"));
+        touchAreas.add(new TouchArea(0.1881f, 0.7557f, 0.2681f, 0.8057f, "2"));
+        touchAreas.add(new TouchArea(0.2912f, 0.7520f, 0.3712f, 0.8020f, "3"));
+        touchAreas.add(new TouchArea(0.3952f, 0.7557f, 0.4752f, 0.8057f, "K"));
+        touchAreas.add(new TouchArea(0.4973f, 0.7520f, 0.5773f, 0.8020f, "L"));
+        touchAreas.add(new TouchArea(0.6023f, 0.7526f, 0.6823f, 0.8026f, "M"));
+        touchAreas.add(new TouchArea(0.7063f, 0.7557f, 0.7863f, 0.8057f, "N"));
+        touchAreas.add(new TouchArea(0.8054f, 0.7520f, 0.8854f, 0.8020f, "O"));
 
-        touchAreas.add(new TouchArea(0.0908f, 0.8103f, 0.1708f, 0.8603f, "4"));
-        touchAreas.add(new TouchArea(0.1853f, 0.8089f, 0.2653f, 0.8589f, "5"));
-        touchAreas.add(new TouchArea(0.2917f, 0.8089f, 0.3717f, 0.8589f, "6"));
-        touchAreas.add(new TouchArea(0.3916f, 0.8089f, 0.4716f, 0.8589f, "P"));
-        touchAreas.add(new TouchArea(0.4958f, 0.8103f, 0.5758f, 0.8603f, "Q"));
-        touchAreas.add(new TouchArea(0.5957f, 0.8103f, 0.6757f, 0.8603f, "R"));
-        touchAreas.add(new TouchArea(0.6988f, 0.8124f, 0.7788f, 0.8624f, "S"));
-        touchAreas.add(new TouchArea(0.8031f, 0.8068f, 0.8831f, 0.8568f, "T"));
+        touchAreas.add(new TouchArea(0.0900f, 0.8135f, 0.1700f, 0.8635f, "4"));
+        touchAreas.add(new TouchArea(0.1911f, 0.8117f, 0.2711f, 0.8617f, "5"));
+        touchAreas.add(new TouchArea(0.2823f, 0.8123f, 0.3623f, 0.8623f, "6"));
+        touchAreas.add(new TouchArea(0.3952f, 0.8117f, 0.4752f, 0.8617f, "P"));
+        touchAreas.add(new TouchArea(0.4982f, 0.8135f, 0.5782f, 0.8635f, "Q"));
+        touchAreas.add(new TouchArea(0.5984f, 0.8117f, 0.6784f, 0.8617f, "R"));
+        touchAreas.add(new TouchArea(0.7004f, 0.8135f, 0.7804f, 0.8635f, "S"));
+        touchAreas.add(new TouchArea(0.8084f, 0.8117f, 0.8884f, 0.8617f, "T"));
 
-        touchAreas.add(new TouchArea(0.0875f, 0.8665f, 0.1675f, 0.9165f, "7"));
-        touchAreas.add(new TouchArea(0.1853f, 0.8686f, 0.2653f, 0.9186f, "8"));
-        touchAreas.add(new TouchArea(0.2852f, 0.8665f, 0.3652f, 0.9165f, "9"));
-        touchAreas.add(new TouchArea(0.3916f, 0.8686f, 0.4716f, 0.9186f, "U"));
-        touchAreas.add(new TouchArea(0.4958f, 0.8728f, 0.5758f, 0.9228f, "V"));
-        touchAreas.add(new TouchArea(0.5957f, 0.8686f, 0.6757f, 0.9186f, "W"));
-        touchAreas.add(new TouchArea(0.7054f, 0.8707f, 0.7854f, 0.9207f, "X"));
-        touchAreas.add(new TouchArea(0.8031f, 0.8665f, 0.8831f, 0.9165f, "Y"));
+        touchAreas.add(new TouchArea(0.0861f, 0.8713f, 0.1661f, 0.9213f, "7"));
+        touchAreas.add(new TouchArea(0.1891f, 0.8701f, 0.2691f, 0.9201f, "8"));
+        touchAreas.add(new TouchArea(0.2872f, 0.8701f, 0.3672f, 0.9201f, "9"));
+        touchAreas.add(new TouchArea(0.3982f, 0.8701f, 0.4782f, 0.9201f, "U"));
+        touchAreas.add(new TouchArea(0.4973f, 0.8694f, 0.5773f, 0.9194f, "V"));
+        touchAreas.add(new TouchArea(0.5984f, 0.8701f, 0.6784f, 0.9201f, "W"));
+        touchAreas.add(new TouchArea(0.7014f, 0.8701f, 0.7814f, 0.9201f, "X"));
+        touchAreas.add(new TouchArea(0.8054f, 0.8713f, 0.8854f, 0.9213f, "Y"));
 
-        touchAreas.add(new TouchArea(0.0843f, 0.9312f, 0.1643f, 0.9812f, "."));
-        touchAreas.add(new TouchArea(0.1918f, 0.9291f, 0.2718f, 0.9791f, "0"));
-        touchAreas.add(new TouchArea(0.2852f, 0.9291f, 0.3652f, 0.9791f, "+/-"));
-        touchAreas.add(new TouchArea(0.3948f, 0.9270f, 0.4748f, 0.9770f, "Z"));
-        touchAreas.add(new TouchArea(0.4958f, 0.9270f, 0.5758f, 0.9770f, "SP"));
-        touchAreas.add(new TouchArea(0.5957f, 0.9312f, 0.6757f, 0.9812f, "DEL"));
-        touchAreas.add(new TouchArea(0.6988f, 0.9312f, 0.7788f, 0.9812f, "/"));
-        touchAreas.add(new TouchArea(0.8031f, 0.9270f, 0.8831f, 0.9770f, "CLR"));
+        touchAreas.add(new TouchArea(0.0870f, 0.9272f, 0.1670f, 0.9772f, "."));
+        touchAreas.add(new TouchArea(0.1881f, 0.9278f, 0.2681f, 0.9778f, "0"));
+        touchAreas.add(new TouchArea(0.2872f, 0.9310f, 0.3672f, 0.9810f, "+/-"));
+        touchAreas.add(new TouchArea(0.3952f, 0.9278f, 0.4752f, 0.9778f, "Z"));
+        touchAreas.add(new TouchArea(0.4982f, 0.9272f, 0.5782f, 0.9772f, "SP"));
+        touchAreas.add(new TouchArea(0.6013f, 0.9278f, 0.6813f, 0.9778f, "DEL"));
+        touchAreas.add(new TouchArea(0.7044f, 0.9310f, 0.7844f, 0.9810f, "/"));
+        touchAreas.add(new TouchArea(0.8025f, 0.9272f, 0.8825f, 0.9772f, "CLR"));
     }
 
     @Override
@@ -539,9 +508,6 @@ public class CDUView extends View {
             }
         }
 
-        drawIcon(canvas, settingsIcon, settingsX, settingsY);
-        drawIcon(canvas, closeIcon, closeX, closeY);
-        drawFmcText(canvas);
         drawLedIndicator(canvas);
 
         if (pressedArea != null) {
@@ -552,30 +518,6 @@ public class CDUView extends View {
         }
     }
 
-    private void drawIcon(Canvas canvas, Drawable d, float xFrac, float yFrac) {
-        float px = imgOffsetX + xFrac * imgScaleW;
-        float py = imgOffsetY + yFrac * imgScaleH;
-        if (d != null) {
-            iconRectF.set(px - iconSize/2, py - iconSize/2, px + iconSize/2, py + iconSize/2);
-            d.setBounds((int)iconRectF.left, (int)iconRectF.top, (int)iconRectF.right, (int)iconRectF.bottom);
-            d.draw(canvas);
-        } else {
-            canvas.drawCircle(px, py, iconSize/2, fallbackPaint);
-        }
-    }
-
-    private void drawFmcText(Canvas canvas) {
-        float px = imgOffsetX + fmcX * imgScaleW;
-        float py = imgOffsetY + fmcY * imgScaleH;
-        float textWidth = fmcTextPaint.measureText(fmcDisplayText);
-        
-        canvas.drawRect(px - textWidth/2 - fmcBoxPadding, py - fmcBoxHeight/2, 
-                        px + textWidth/2 + fmcBoxPadding, py + fmcBoxHeight/2, boxPaint);
-        
-        fmcTextPaint.getFontMetrics(fmcFontMetrics);
-        float textY = py - (fmcFontMetrics.ascent + fmcFontMetrics.descent) / 2;
-        canvas.drawText(fmcDisplayText, px, textY, fmcTextPaint);
-    }
 
     private void drawLedIndicator(Canvas canvas) {
         float px = imgOffsetX + ledX * imgScaleW;

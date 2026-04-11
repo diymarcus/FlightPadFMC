@@ -8,40 +8,51 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/server_settings"
+        android:text="Server Settings"
         android:textSize="18sp"
         android:textStyle="bold"
+        android:layout_marginBottom="4dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="FlightPadFMC Server must be running on the MSFS PC."
+        android:textSize="11sp"
+        android:textColor="#888888"
         android:layout_marginBottom="16dp"/>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/connection_mode"
-        android:layout_marginBottom="8dp"/>
+        android:text="Connection Mode"
+        android:layout_marginBottom="4dp"/>
 
     <RadioGroup
         android:id="@+id/rg_mode"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="horizontal"
         android:layout_marginBottom="16dp">
 
         <RadioButton
             android:id="@+id/rb_auto"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/auto_discovery"/>
+            android:text="Auto (mDNS)"
+            android:layout_marginEnd="24dp"/>
 
         <RadioButton
             android:id="@+id/rb_manual"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/manual_ip"/>
+            android:text="Manual IP"/>
+
     </RadioGroup>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/server_ip_address"
+        android:text="Server IP Address (MSFS PC)"
         android:layout_marginBottom="4dp"/>
 
     <EditText
@@ -55,7 +66,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/server_port"
+        android:text="Server Port (default 8765)"
         android:layout_marginBottom="4dp"/>
 
     <EditText
@@ -80,35 +91,36 @@
         android:layout_marginBottom="8dp"/>
     -->
 
-    <!-- Sound Toggle Checkbox -->
+    <!--
+    <Button
+        android:id="@+id/btn_calibrate_leds"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="💡 Calibrate LEDs Only"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:background="#ff8c00"
+        android:textColor="#FFFFFF"
+        android:padding="12dp"
+        android:layout_marginBottom="8dp"/>
+    -->
+
     <CheckBox
         android:id="@+id/cb_sound"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="🔊 Button Press Sound"
+        android:text="Button Press Sound"
         android:textSize="14sp"
         android:checked="true"
         android:layout_marginBottom="8dp"/>
 
-    <!-- Haptic Feedback Toggle Checkbox -->
     <CheckBox
         android:id="@+id/cb_haptic"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="📳 Haptic Feedback (Vibration)"
+        android:text="Haptic Feedback (Vibration)"
         android:textSize="14sp"
         android:checked="true"
-        android:layout_marginBottom="16dp"/>
-
-    <!-- Info Text (COMMENTED OUT - May be needed later)
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="⚠ Use calibration if buttons don't align on your screen"
-        android:textColor="#ff8c00"
-        android:textSize="11sp"
-        android:gravity="center"
-        android:layout_marginBottom="16dp"/>
-    -->
+        android:layout_marginBottom="8dp"/>
 
 </LinearLayout>

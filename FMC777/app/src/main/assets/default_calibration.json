@@ -6,7 +6,6 @@
   "UI_ELEMENTS": {
     "SETTINGS_BTN": { "x": 0.955, "y": 0.03 },
     "CLOSE_BTN": { "x": 0.045, "y": 0.03 },
-    "FMC_LEFT_TEXT": { "x": 0.5, "y": 0.03 },
     "FMC_LED": { "x": 0.5, "y": 0.05 }
   },
   
@@ -30,8 +29,6 @@
   
   "SCREEN_CORNERS": {
     "SCREEN_TL": { "x": 0.16, "y": 0.06 },
-    "SCREEN_TR": { "x": 0.82, "y": 0.06 },
-    "SCREEN_BL": { "x": 0.16, "y": 0.42 },
     "SCREEN_BR": { "x": 0.82, "y": 0.42 }
   },
   

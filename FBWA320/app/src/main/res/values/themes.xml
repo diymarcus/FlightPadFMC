@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme.AppCompat.NoActionBar is used directly from the support library.
+         The manifest references @style/Theme.AppCompat.NoActionBar which is a
+         built-in support library style — no custom definition needed here. -->
+</resources>

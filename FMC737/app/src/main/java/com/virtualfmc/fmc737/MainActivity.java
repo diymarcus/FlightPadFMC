@@ -242,7 +242,6 @@ public class MainActivity extends Activity {
         final RadioButton rbManual = dialogView.findViewById(R.id.rb_manual);
         final EditText etIp = dialogView.findViewById(R.id.et_ip);
         final EditText etPort = dialogView.findViewById(R.id.et_port);
-        // final Button btnCalibrate = dialogView.findViewById(R.id.btn_calibrate);  // COMMENTED OUT - May be needed later
         final CheckBox cbSound = dialogView.findViewById(R.id.cb_sound);
         final CheckBox cbHaptic = dialogView.findViewById(R.id.cb_haptic);
 
@@ -255,21 +254,6 @@ public class MainActivity extends Activity {
 
         boolean hapticEnabled = cduView != null && cduView.isHapticEnabled();
         cbHaptic.setChecked(hapticEnabled);
-
-        // Calibrate button click listener (COMMENTED OUT - May be needed later)
-        /*
-        btnCalibrate.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                try {
-                    startActivity(new Intent(MainActivity.this, CalibrateActivity737.class));
-                } catch (Exception e) {
-                    Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Failed to start calibration", e);
-                }
-            }
-        });
-        */
 
         builder.setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
             @Override
@@ -582,33 +566,6 @@ public class MainActivity extends Activity {
     private void handleUIAction(String action) {
         if ("SETTINGS_BTN".equals(action))   showSettingsDialog();
         else if ("CLOSE_BTN".equals(action)) finish();
-        else if ("FMC_LEFT_TEXT".equals(action)) showFmcSelectorDialog();
-    }
-
-    private void showFmcSelectorDialog() {
-        String[] positions = {"LEFT", "CENTER", "RIGHT"};
-        int currentIndex = 0;
-        String currentPos = cduView != null ? cduView.getFmcPosition() : "LEFT";
-        for (int i = 0; i < positions.length; i++) {
-            if (positions[i].equals(currentPos)) {
-                currentIndex = i;
-                break;
-            }
-        }
-
-        new AlertDialog.Builder(this)
-            .setTitle("Select FMC Position")
-            .setSingleChoiceItems(positions, currentIndex, new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    if (cduView != null) {
-                        cduView.setFmcPosition(positions[which]);
-                    }
-                    dialog.dismiss();
-                }
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
     }
 
     @Override protected void onPause() {

@@ -1,197 +1,424 @@
 ================================================================================
-  FlightPadFMC — Native Android FMC for PMDG 737 & 777
-  Version 0.2.0
+  FlightPadFMC — Native Android FMC / MCDU for PMDG 737, PMDG 777 & FlyByWire A320
+  Version 0.2.1
   By SilenceDIY (Marcus)
   https://github.com/diymarcus/FlightPadFMC
 ================================================================================
 
 DESCRIPTION
 -----------
-FlightPadFMC turns your Android tablet into a fully functional CDU (FMC) for
-PMDG aircraft in Microsoft Flight Simulator 2020. Microsoft Flight Simulator 2024 (On Test)
+FlightPadFMC turns your Android tablet or phone into a fully functional CDU /
+MCDU for the PMDG 737, PMDG 777 and FlyByWire A320 in Microsoft Flight
+Simulator 2020 and 2024.
 
-Unlike web-based solutions, this is a true native Android app — faster, smoother,
-and more responsive. The CDU skin is pixel-accurate, touch input is calibrated.
+Unlike web-based solutions, this is a true native Android app — faster,
+smoother and more responsive. The CDU / MCDU skins are pixel-accurate, touch
+input is calibrated, and the display updates live over your local WiFi.
 
-Supported aircraft:
-  - PMDG 737 NGXu (737-700 / 737-800/ 737-900)
-  - PMDG 777X
+Three separate Android apps are provided, one per aircraft type:
+  - 737PMDG.apk  — PMDG 737 NGXu (700 / 800 / 900)
+  - 777PMDG.apk  — PMDG 777-300ER / 777F
+  - FBWA320.apk  — FlyByWire A32NX (via SimBridge)
+
+One Windows server acts as the bridge between MSFS and the Android apps. The
+same server handles all three aircraft — simply launch the matching app on
+your tablet and the server figures out the rest.
 
 Supported platforms:
-  - MSFS 2020 (MSFS 2024 compatible — same SimConnect API)
-  - Android 4.4 and above (one APK for all Android versions)
-  - Windows 10 / 11 (server app)
+  - Microsoft Flight Simulator 2020 (SimConnect v11)
+  - Microsoft Flight Simulator 2024 (SimConnect v12)
+  - Android 4.4 through Android 14 (single APK per aircraft)
+  - Windows 10 / 11, 64-bit (server app)
 
 
 HOW IT WORKS
 ------------
-  MSFS 2020 + PMDG Aircraft
-          |
-    SimConnect SDK
-          |
-  FlightPadFMC Server (Windows .exe)
-          |
-      WiFi / LAN  (WebSocket)
-          |
-  FlightPadFMC App (Android tablet)
+  PMDG 737 / 777:
+      MSFS + PMDG Aircraft
+            |
+         SimConnect + MobiFlight WASM
+            |
+      FlightPadFMC Server (FlightPadFMCServer.exe)
+            |
+          WiFi / LAN  (WebSocket)
+            |
+      FlightPadFMC App (Android)
 
-The Windows server connects to MSFS via SimConnect, reads the CDU screen data
-state from PMDG, and streams it to the Android app over your local
-WiFi network. Key presses from the tablet are sent back to the server and
-forwarded to PMDG in real time.
+  FlyByWire A320:
+      MSFS + FlyByWire A32NX
+            |
+      FlyByWire SimBridge
+            |
+      FlightPadFMC Server   <-- proxies SimBridge
+            |
+          WiFi / LAN  (WebSocket)
+            |
+      FBWA320 App (Android)
+
+The server connects to MSFS via SimConnect (PMDG) or proxies SimBridge
+(FlyByWire), reads the CDU / MCDU screen data, and streams it to the Android
+app over your local network. Key presses are sent back to the server and
+forwarded to the aircraft in real time.
 
 
 REQUIREMENTS
 ------------
-  - Microsoft Flight Simulator 2020/2024 (On Test)
-  - PMDG 737 NGXu or PMDG 777X add-on
-  - PMDG SDK enabled in aircraft options (see below)
-  - MobiFlight WASM Module installed in MSFS Community folder
-  - Android tablet (any size, Android 4.4+)
-  - Both PC and tablet on the same WiFi / LAN network
-  - Windows 10 or 11 (64-bit)
+  General (all users):
+    - Microsoft Flight Simulator 2020 OR 2024
+    - Windows 10 / 11, 64-bit
+    - Android device on the same WiFi / LAN as the PC
+    - Android 4.4 or newer
+
+  For PMDG 737 / 777:
+    - PMDG 737 NGXu or PMDG 777 add-on
+    - PMDG SDK enabled in the aircraft options (Step 1)
+    - MobiFlight WASM Module installed in the Community folder (Step 2)
+
+  For FlyByWire A320:
+    - FlyByWire A32NX (free, from flightsim.to or FBW installer)
+    - FlyByWire SimBridge running on the same PC (Step 3)
 
 
 INSTALLATION — STEP BY STEP
-
-Keep in mind that this is an Alpha version. I would greatly appreciate any bug reports or feedback you can provide to help improve the app!
 ----------------------------
 
-STEP 1 — Enable PMDG SDK
-  The PMDG SDK must be enabled to allow external tools to read CDU data.
+This is an Alpha release. Bug reports and feedback are very welcome — they
+help me track down the last rough edges before a proper 1.0.
 
-  For PMDG 737:
-    Open this file in a text editor:
+
+STEP 1 — Enable the PMDG SDK   (skip if you only use the A320)
+---------------------------------------------------------------
+The PMDG SDK must be enabled so external tools (like FlightPadFMC) can read
+the CDU data. You need to edit a small .ini file once per aircraft per sim.
+
+In every case:
+  - Open the file in a text editor (Notepad works).
+  - Add or edit the [SDK] section so it contains:
+      [SDK]
+      EnableDataBroadcast=1
+      EnableCDUBroadcast.0=1
+  - Save the file. IMPORTANT: make sure there is a blank line / trailing
+    newline at the end — PMDG has been known to discard the [SDK] section
+    if the file does not end cleanly.
+  - Restart MSFS if it was already running.
+  - Load the aircraft fully, past "ready to fly", at least once. The file
+    is regenerated by PMDG on first load, so if it does not exist yet, fly
+    the aircraft once and it will appear.
+
+  ---------------------------------------------------------------
+  MSFS 2020
+  ---------------------------------------------------------------
+
+  PMDG 737 (MSFS 2020, MS Store):
     %LOCALAPPDATA%\Packages\Microsoft.FlightSimulator_8wekyb3d8bbwe\LocalState\
     packages\pmdg-aircraft-738\work\737NG3_Options.ini
 
-    Add or edit the [SDK] section:
-      [SDK]
-      EnableDataBroadcast=1
-      EnableCDUBroadcast.0=1
+  PMDG 737 (MSFS 2020, Steam):
+    %APPDATA%\Microsoft Flight Simulator\Packages\pmdg-aircraft-738\work\
+    737NG3_Options.ini
 
-  For PMDG 777:
-    Open this file in a text editor:
+  PMDG 777 (MSFS 2020, MS Store):
     %LOCALAPPDATA%\Packages\Microsoft.FlightSimulator_8wekyb3d8bbwe\LocalState\
     packages\pmdg-aircraft-77w\work\777_Options.ini
 
-    Add or edit the [SDK] section:
-      [SDK]
-      EnableDataBroadcast=1
-      EnableCDUBroadcast.0=1
+  PMDG 777 (MSFS 2020, Steam):
+    %APPDATA%\Microsoft Flight Simulator\Packages\pmdg-aircraft-77w\work\
+    777_Options.ini
 
-  Save the file and restart MSFS if it was running.
+  ---------------------------------------------------------------
+  MSFS 2024
+  ---------------------------------------------------------------
 
-  NOTE: If you use the Microsoft Store version of MSFS, the path above is correct.
-  For Steam version, the path is:
-    %APPDATA%\Microsoft Flight Simulator\Packages\...
+  MSFS 2024 stores PMDG options under a different root than 2020 — look in
+  the "Limitless" package, inside a WASM\MSFS2024 subfolder.
 
+  PMDG 737 (MSFS 2024, MS Store):
+    %LOCALAPPDATA%\Packages\Microsoft.Limitless_8wekyb3d8bbwe\LocalState\
+    WASM\MSFS2024\pmdg-aircraft-738\work\737NG3_Options.ini
 
-STEP 2 — Install MobiFlight WASM Module
-  MSFS and provides access to aircraft L-variables.
+  PMDG 737 (MSFS 2024, Steam):
+    %APPDATA%\Microsoft Flight Simulator 2024\WASM\MSFS2024\
+    pmdg-aircraft-738\work\737NG3_Options.ini
 
-  1. Download MobiFlight WASM Module from:
-     https://github.com/MobiFlight/MobiFlight-WASM-Module
-	Or the mobiflight-event-module you can find in archive/Community
+  PMDG 777 (MSFS 2024, MS Store):
+    %LOCALAPPDATA%\Packages\Microsoft.Limitless_8wekyb3d8bbwe\LocalState\
+    WASM\MSFS2024\pmdg-aircraft-77w\work\777_Options.ini
 
-  2. Copy the "mobiflight-event-module" folder into your MSFS Community folder.
+  PMDG 777 (MSFS 2024, Steam):
+    %APPDATA%\Microsoft Flight Simulator 2024\WASM\MSFS2024\
+    pmdg-aircraft-77w\work\777_Options.ini
 
-  Your Community folder is typically:
-    %LOCALAPPDATA%\Packages\Microsoft.FlightSimulator_8wekyb3d8bbwe\LocalState\
-    packages\Community\
-
-  3. Restart MSFS after installing.
-
-  NOTE: The MobiFlight WASM Module is a free, open-source project.
-  If you already have MobiFlight installed for other purposes, the WASM module
-  is already present — no extra steps needed.
-
-
-STEP 3 — Install SimConnect DLL
-  The server requires SimConnect.dll to communicate with MSFS.
-
-  The server will automatically search for SimConnect.dll in these locations:
-    1. Same folder as FlightPadFMC_Server.exe  (recommended)
-
-  The easiest approach: copy SimConnect.dll next to FlightPadFMC_Server.exe.
-  You can find SimConnect.dll in your MSFS SDK installation, or download it
-  from the MSFS Developer Mode tools.
+  The folder name may show up as "pmdg-aircraft-737" or "pmdg-aircraft-777"
+  instead of "738" / "77w" depending on which PMDG build you own. If you
+  don't see the exact folder above, look for any folder starting with
+  "pmdg-aircraft-73" (for the 737) or "pmdg-aircraft-77" (for the 777) in
+  the same parent directory — that's the one to edit.
 
 
-STEP 4 — Run the Server
-  1. Extract the FlightPadFMC server folder to any location on your PC.
-  2. Run FlightPadFMCServer.exe
-  3. Start MSFS and load a PMDG aircraft.
-  4. The server status will show "MSFS Connected" when ready.
-  5.Ensure you Allow Access through your firewall. If the firewall is not configured correctly, the Android app will be unable to communicate with the server.
+STEP 2 — Install the MobiFlight WASM Module   (skip if you only use the A320)
+-----------------------------------------------------------------------------
+The MobiFlight WASM Module (a.k.a. "mobiflight-event-module" / "EVENT MODULE")
+runs inside MSFS and exposes aircraft L-variables that FlightPadFMC needs for
+the PMDG 737 EXEC LED. The install procedure is different between MSFS 2020
+and MSFS 2024 — follow the section that matches your sim.
 
-  The server shows:
-    - MSFS status (connected / not connected)
-    - Android status (which app is connected)
-    - Server status (WebSocket running)
-    - Activity log
+  ---------------------------------------------------------------
+  MSFS 2020 — manual copy into Community folder
+  ---------------------------------------------------------------
 
-  Settings (port, log level) are available from the menu bar.
-  The server minimizes to the system tray when closed.
+  1. Download the module from:
+       https://github.com/MobiFlight/MobiFlight-WASM-Module
+     Or use the "mobiflight-event-module" folder included in the
+     "Community" archive shipped with FlightPadFMC.
+
+  2. Copy the "mobiflight-event-module" folder into your MSFS 2020
+     Community folder:
+       MS Store:
+         %LOCALAPPDATA%\Packages\Microsoft.FlightSimulator_8wekyb3d8bbwe\
+         LocalCache\Packages\Community\
+       Steam:
+         %APPDATA%\Microsoft Flight Simulator\Packages\Community\
+
+  3. Restart MSFS 2020.
+
+  ---------------------------------------------------------------
+  MSFS 2024 — enable through the in-sim Marketplace
+  ---------------------------------------------------------------
+
+  MSFS 2024 does not use a manual Community folder for most add-ons.
+  The MobiFlight WASM module is published as a free Marketplace item
+  ("EVENT MODULE") and only needs to be enabled:
+
+  1. Launch MSFS 2024.
+  2. Open Marketplace -> My Library -> Community.
+  3. Find the entry named "EVENT MODULE" (this is the MobiFlight WASM
+     module — same module as MSFS 2020, just delivered via Marketplace).
+     If you don't see it in "My Library", download it once from the
+     Marketplace first (it is free). It should then appear under
+     "My Library".
+  4. Click Enable on the EVENT MODULE entry.
+  5. Restart MSFS 2024 so the WASM module is loaded.
+
+  ---------------------------------------------------------------
+
+  NOTE: The FlightPadFMC server automatically checks whether the module is
+  installed when a PMDG 737 connects, and will log a red error in the
+  server Activity Log if it is missing or not enabled. If you see that
+  error, return to this step.
+
+  NOTE: If you already use MobiFlight for other purposes, the WASM module
+  is most likely already installed — no extra action needed.
 
 
-STEP 5 — Install Android App
-  Two separate APKs are provided — one for 737, one for 777.
+STEP 3 — Install FlyByWire SimBridge   (skip if you only use the 737 / 777)
+---------------------------------------------------------------------------
+The A320 support proxies the MCDU through FlyByWire's own SimBridge tool.
+SimBridge is free and maintained by the FlyByWire team, and it is installed
+through the FlyByWire A32NX installer — you do not need a separate download.
 
-    737FMCPad.apk  — for PMDG 737 NGXu
-    777FMCPad.apk  — for PMDG 777X
+  1. Launch the FlyByWire Installer (the same tool you used to install the
+     A32NX itself). If you don't have it yet:
+       https://flybywiresim.com/download/
 
-  To install:
-  1. Copy the APK to your Android tablet.
-  2. Enable "Install from unknown sources" in Android Settings > Security.
-  3. Tap the APK file to install.
+  2. In the installer, open the A32NX section and start the setup / update
+     flow. During setup you will be offered a list of optional components —
+     tick "SimBridge" (or "Install SimBridge") and let the installer finish.
 
-  The app works on Android 4.4 through Android 14. No special permissions needed
-  beyond local network access.
+  3. Launch SimBridge. It runs as a small tray app on the PC. You can
+     start it in any of these ways (pick whichever is easiest):
+       - From the Start menu shortcut created by the FBW installer.
+       - Let the FBW installer start it for you at the end of setup.
+       - Directly from the Community folder:
+           <Community>\flybywire-externaltools-simbridge\fbw-simbridge.exe
+         (this is the exact executable — you can pin it to the taskbar
+         or make a desktop shortcut for one-click launch).
+
+  4. Load the A32NX in MSFS.
+
+  SimBridge must be running before you connect the FBWA320 Android app,
+  otherwise the app will just sit at "Waiting for server...". The
+  FlightPadFMC server Activity Log will also tell you if SimBridge is
+  missing or not reachable.
+
+  More info:
+    https://docs.flybywiresim.com/tools/simbridge/
+
+
+STEP 4 — Run the FlightPadFMC Server
+------------------------------------
+  1. Extract the FlightPadFMC server folder anywhere on your PC.
+
+  2. Inside that folder you will find two SimConnect subfolders:
+       dist\SDK2020\SimConnect.dll   <-- for MSFS 2020
+       dist\SDK2024\SimConnect.dll   <-- for MSFS 2024
+     Both DLLs ship with the release — no manual copy needed.
+
+  3. Run FlightPadFMCServer.exe.
+
+  4. In the server: File -> Settings, set "MSFS Version" to 2020 or 2024
+     to match your installation, then restart the server.
+
+  5. Start MSFS and load your aircraft. The server will show:
+       - MSFS:     Connected / Not connected
+       - Android:  which FMC app is connected
+       - Server:   WebSocket running / stopped
+
+  6. Allow the server through Windows Firewall when prompted. If the firewall
+     blocks the server, the Android apps will never see it on the LAN.
+
+  Activity Log, port setting and About window are available from the menu.
+  Closing the window minimises the server to the system tray.
+
+
+STEP 5 — Install the Android App(s)
+-----------------------------------
+Three APKs are provided, one per aircraft. Install only the one(s) you fly:
+
+    737PMDG.apk   — for PMDG 737 NGXu
+    777PMDG.apk   — for PMDG 777
+    FBWA320.apk   — for FlyByWire A32NX
+
+To install:
+  1. IMPORTANT — If you already have an older version of the same
+     FlightPadFMC app installed, uninstall it first (Android Settings >
+     Apps > 737FMCPad / 777FMCPad / FBWA320 > Uninstall). Installing a
+     new APK on top of an old one can fail with a "package conflict" /
+     "app not installed" error because the signing keys between builds
+     may differ. Uninstalling the old version first avoids this.
+  2. Copy the APK to your Android device.
+  3. Enable "Install from unknown sources" in Android Settings > Security
+     (or "Install unknown apps" on newer Android versions).
+  4. Tap the APK file to install.
+
+The apps work on Android 4.4 through Android 14. The only permission used
+is local network access.
+
+In-app settings:
+  Tap the gear icon on the CDU / MCDU skin to open the in-app Settings
+  dialog. From here you can:
+    - Switch connection mode between Auto (mDNS auto-discovery) and
+      Manual (type the server IP yourself)
+    - Enter the server IP and port manually if auto-discovery does not
+      find the server on your network
+    - Toggle click sound and haptic feedback
+
+  If the app sits on "Waiting for server..." or "No IP — tap gear to
+  configure", open Settings, switch to Manual mode, and enter the IP
+  address shown in the server window title bar (default port 8765).
+  Auto mode works on most home networks, but some routers block mDNS —
+  in that case Manual mode is the reliable fallback.
 
 
 STEP 6 — Connect
-  1. Make sure your PC and tablet are on the same WiFi network.
-  2. Open the FlightPadFMC app on your tablet.
-  3. The app will auto-discover the server via mDNS (no IP needed in most cases).
-  4. If auto-discovery fails, open Settings in the app and enter the server IP
-     manually. The server IP is shown in the server window title bar.
+----------------
+  1. Make sure the PC and the Android device are on the same WiFi / LAN.
+  2. Launch the matching app on your tablet:
+       - 737PMDG -> PMDG 737 loaded
+       - 777PMDG -> PMDG 777 loaded
+       - FBWA320 -> A32NX loaded + SimBridge running
+  3. The app auto-discovers the server via mDNS. No IP entry needed in most
+     home networks.
+  4. If auto-discovery fails: open the in-app Settings, switch mode to
+     "Manual", and type the server IP shown in the server window title bar.
+     Default port is 8765.
 
-  Once connected, the CDU screen will appear and update in real time.
+Once connected, the CDU / MCDU screen appears and updates live. The server
+also fires a fake MENU key on connect, so the display is never blank.
 
 
 USAGE TIPS
 ----------
-  - Tap the FMC position button (top-left) to switch between LEFT / CENTER / RIGHT
-    CDU positions. (Not yet implemented)
-  - Tap the gear icon to open Settings.
-  - Tap the X button to close the app cleanly.
-  - If the server is restarted, the app will reconnect automatically.
-  - If the app is minimized (home button), it disconnects. Return to the app to
-    reconnect automatically.
+  - Tap the gear icon on the skin to open in-app Settings.
+  - Tap the X icon to cleanly close the app.
+  - If the server restarts, the app reconnects automatically (5 fast retries,
+    then a 30-second slow retry until it comes back).
+  - Pressing Home / switching apps disconnects the Android side cleanly;
+    returning to the app reconnects automatically.
+  - The server tray icon turns green when an Android app is connected.
 
 
 TROUBLESHOOTING
 ---------------
-  EXEC LED not working:
-    - Make sure MobiFlight WASM Module is installed in the Community folder.
+  EXEC LED not working (PMDG 737):
+    - Make sure the MobiFlight WASM Module is in the Community folder.
     - Restart MSFS after installing the WASM module.
     - Check the server Activity Log for "MF LVar switch_6042_73X" messages.
 
-  CDU screen not showing / wrong aircraft:
-    - Check that PMDG SDK is enabled (Step 1).
-    - Make sure the correct APK is installed for your aircraft (737 or 777).
-    - The server detects aircraft from the Android app's identify message —
-      make sure you opened the correct app.
+  CDU / MCDU screen not showing:
+    - PMDG: verify PMDG SDK is enabled (Step 1) and MSFS was restarted.
+    - A320: verify SimBridge is running (launch the SimBridge tray app —
+      see Step 3). The server Activity Log will show SimBridge retry
+      messages if it cannot reach it.
+    - Make sure you launched the correct app for the aircraft you loaded.
+    - In the server, check that "MSFS Version" matches your installation
+      (2020 vs 2024).
 
   App not connecting:
-    - Check that PC and tablet are on the same WiFi network.
-    - Try entering the server IP manually in the app Settings.
-    - Check Windows Firewall — allow FlightPadFMCServer.exe on private networks.
-    - Default port is 8765. Change in server Settings if needed.
+    - PC and Android on the same WiFi network?
+    - Windows Firewall allowing FlightPadFMCServer.exe on private networks?
+    - Default port 8765 not already used by another app?
+    - Try "Manual" mode in the app and enter the server IP by hand.
 
-  Keys not registering in PMDG:
-    - Make sure PMDG SDK is enabled (Step 1).
+  Keys not registering:
+    - PMDG: PMDG SDK must be enabled. Also make sure the aircraft has been
+      fully loaded past "ready to fly" at least once after enabling the SDK.
+    - A320: SimBridge must be running before you press any key.
+
+  Sound is quiet or inconsistent on newer Android:
+    - Update to v0.2.1 — sound output was reworked in this release and now
+      follows the media volume slider cleanly on Android 12+.
+
+
+KNOWN LIMITATIONS
+-----------------
+The following items are known and are NOT bugs in FlightPadFMC — they are
+limitations of the upstream data sources we depend on. They will be addressed
+in future releases as the underlying tools gain the necessary features, or as
+FlightPadFMC adds support for aircraft that do expose the missing data.
+
+  FBWA320 — MCDU annunciator LEDs stay dark
+    The 5 annunciator indicators at the top of the A320 MCDU skin (FM1, IND,
+    RDY, --, FM2) are drawn on the app but remain off under all conditions,
+    including after triggering FMGC failures from the FlyByWire flyPad
+    Failures menu. Reason: the FlyByWire A32NX does not simulate the MCDU
+    annunciator panel state in the in-sim MCDU gauge either, so FlyByWire
+    SimBridge has no data to forward. This was verified on a live A32NX by
+    triggering FMGC1 failures and observing that the annunciators never lit
+    up on the real cockpit MCDU in the sim — it is an FBW limitation, not a
+    FlightPadFMC bug. Planned to light up in a future release once Fenix A320
+    support is added, since Fenix exposes all annunciators as L:Variables.
+
+  FBWA320 — certain MCDU pages may show placeholder characters
+    On some MCDU pages where the FBW HTML MCDU gauge uses special cockpit
+    glyphs (empty data-entry boxes, custom symbols), the Android app may
+    render a plain character or a small placeholder square instead of the
+    intended glyph. This is because FlyByWire's in-sim MCDU uses a custom
+    font with remapped codepoints that B612 Mono (the aviation font used by
+    FlightPadFMC) does not have a matching glyph for. Functionality is not
+    affected — only the visual appearance of that specific character. A
+    character translation table (translateFbwChar() in MainActivity.java)
+    is already in place for known remaps and will be extended in future
+    updates as more are identified.
+
+  FBWA320 — not all MCDU pages fully verified
+    FlightPadFMC v0.2.1 is the first release with FlyByWire A320 support.
+    The common MCDU pages (MCDU MENU, INIT A/B, F-PLN, PROG, PERF) have been
+    tested, but the A32NX MCDU has many less frequently used pages that have
+    not yet been exercised in a live flight. If you see an alignment, color,
+    or rendering issue on a specific page, please report it — the fix is
+    usually one line once the broken data is captured from the server log.
+
+  FMC777 / FMC737 — only EXEC LED is currently implemented
+    The real PMDG 737 NGXu and 777 CDUs have several annunciator lights next
+    to the display (EXEC, MSG, CALL, FAIL, OFST, DSPY on the 737 / EXEC,
+    CALL, FAIL, MSG, OFST on the 777). FlightPadFMC v0.2.1 currently only
+    drives the EXEC LED on both aircraft — all other annunciators are drawn
+    on the skin but remain off. The underlying data is available via the
+    PMDG SDK and MobiFlight L:Variables, so this is a FlightPadFMC-side
+    limitation, not a data source limitation. Additional annunciators will
+    be added in a future release. Most common operational use of the PMDG
+    CDU does not depend on the missing annunciators — MSG in particular is
+    the one most users will notice is not lighting during normal flight.
 
 
 OPEN SOURCE CREDITS
@@ -200,46 +427,81 @@ OPEN SOURCE CREDITS
   Copyright (c) 2021 Sebastian Moebius, MobiFlight
   MIT License — https://github.com/MobiFlight/MobiFlight-WASM-Module
 
+  FlyByWire SimBridge
+  Copyright (c) FlyByWire Simulations
+  GPL-3.0 — https://github.com/flybywiresim/simbridge
+
+  B612 Mono font
+  SIL Open Font License — designed for aviation cockpit displays
+
 
 ================================================================================
   CHANGELOG
 ================================================================================
 
+Version 0.2.1 — April 2026
+---------------------------
+  NEW:
+  + FlyByWire A32NX support via new FBWA320 Android app
+      - Server proxies FlyByWire SimBridge to the app
+      - mDNS auto-discovery like the PMDG apps
+      - All MCDU keys mapped, 5 annunciator LEDs (FM1, IND, RDY, FM2)
+  + MSFS 2024 fully supported
+      - Server ships with both SimConnect DLLs (SDK2020 / SDK2024)
+      - New "MSFS Version" setting in server Settings
+  + Clickable "SilenceDIY.com" link in server header
+  + Server About window updated for A320 + MSFS 2024
+
+  IMPROVEMENTS:
+  + New Photoshop-drawn skins for all three apps, freshly calibrated
+  + Settings / Close icons now drawn on the skin itself — no Android system
+    drawables required
+  + Sound output reworked for Android 12+ — fixes quiet / inconsistent click
+    volume on newer phones, now follows the media volume slider
+    (SoundPool streams = 1, trimmed 80 ms click WAV, USAGE_MEDIA routing)
+  + APK output filenames are now 737PMDG.apk / 777PMDG.apk / FBWA320.apk
+    (no more generic app-debug.apk)
+  + Server fires a fake MENU keypress 100 ms after any app connects, so the
+    screen is never blank when connecting to a static page (PMDG + A320)
+  + FBWA320: multi-color + multi-alignment MCDU rendering — green flight
+    levels, small labels, {right}-aligned text all render correctly
+  + FBWA320: corrected SimBridge line array order [left, right, center]
+    — fixes right-side text appearing in the center column
+
+  BUG FIXES:
+  - FBWA320 MCDU alignment swap (right vs center columns)
+  - FBWA320 multi-color text (previously single dominant color per row)
+  - Calibration positions for all three apps re-baked against the new skins
+
 Version 0.2.0 — April 2026
 ---------------------------
-  NEW FEATURES:
-  + EXEC LED for PMDG 737 — via MobiFlight WASM L-variable (switch_6042_73X)
+  NEW:
+  + EXEC LED for PMDG 737 — via MobiFlight WASM L-var (switch_6042_73X)
   + EXEC LED for PMDG 777 — live via SimConnect (CDU data area)
 
   IMPROVEMENTS:
-  + Key input speed: 600ms → 200ms delay between keys
-    (discovered PMDG requires proper press+release mouse event cycle)
-  + CLR button fixed on both 737 and 777 — now correctly deletes one character
-    per tap without clearing the entire scratchpad after 2 seconds
-    (used PMDG's K:ROTOR_BRAKE press/release events from HubHop database)
-  + MSFS disconnect now detected immediately when MSFS closes
-  + Android apps: fixed ghost "Android connected" status after app close
-  + Android apps: app now fully disconnects when minimized (home button)
-    and reconnects automatically when returned to foreground
-  + Android apps: after 5 failed connection attempts, switches to slow retry
-    mode (every 30 seconds) instead of stopping — always reconnects when
-    server becomes available again
-  + Server version bump to 0.2.0
+  + Key input speed: 600 ms -> 200 ms delay between keys
+    (discovered PMDG requires a proper press + release mouse event cycle)
+  + CLR button fixed on both 737 and 777 — now deletes one character per tap
+    without clearing the entire scratchpad after 2 seconds
+    (PMDG K:ROTOR_BRAKE press/release events from the HubHop database)
+  + MSFS disconnect detected immediately when MSFS closes
+  + Android: fixed ghost "Android connected" status after app close
+  + Android: app fully disconnects on Home button and reconnects on return
+  + Android: after 5 fast retries, switches to 30 s slow retry indefinitely
 
   BUG FIXES:
-  - Fixed stale WebSocket callbacks causing ghost reconnects on server (737 app)
-  - Fixed missing exec_led message handler in 737 app
-  - Fixed CLR confirmation dialog race condition on app close (737 app)
-  - Fixed SimConnect_CallDispatch not checking return value on MSFS disconnect
+  - Stale WebSocket callbacks causing ghost reconnects on server (737 app)
+  - Missing exec_led message handler in 737 app
+  - CLR confirmation dialog race condition on close (737 app)
+  - SimConnect_CallDispatch return value never checked on MSFS disconnect
 
 Version 0.1.0 — March 2026
 ---------------------------
   Initial release.
-  + PMDG 777 CDU screen live on Android tablet
-  + PMDG 737 CDU screen live on Android tablet
-  + Full key input (all CDU buttons) for 737 and 777
-  + Auto-discovery via mDNS (no manual IP needed on most networks)
-  + Manual IP fallback with retry
+  + PMDG 777 and PMDG 737 CDU screens live on Android
+  + Full key input for all CDU buttons
+  + mDNS auto-discovery + manual IP fallback with retry
   + WiFi auto-reconnect
   + Modern server GUI with connection status indicators
   + System tray support
@@ -250,13 +512,48 @@ Version 0.1.0 — March 2026
 
 
 ================================================================================
+  ROADMAP — What's next
+================================================================================
+
+The next two aircraft targeted for FlightPadFMC support are both fully
+researched, SDK paths are already scoped out, and they will be added as
+new Android apps in upcoming releases:
+
+  Fenix A320
+  ----------
+  - MCDU screen via the Fenix GraphQL interface
+  - Subscribes to aircraft.mcdu1.display / aircraft.mcdu2.display
+  - Full color + size tag support (white, green, cyan, magenta, amber,
+    red, small / large) and all Airbus special glyphs
+  - Key input via MobiFlight WASM L-variables (S_CDU1_KEY_*)
+  - LEDs: FAIL, IND, FM, FM1, FM2, MENU, RDY (all exposed)
+
+  iFly 737 MAX
+  ------------
+  - CDU screen via Windows shared memory (iFly737MAX_SDK_FileMappingObject)
+  - Full 14x24 character grid with per-cell color + small-font flags
+  - Key input via WM_COPYDATA messages to the iFly Plugin window
+  - LEDs: EXEC, MSG, FAIL, CALL, OFST
+  - Works on MSFS 2020 AND MSFS 2024
+  - Supports all MAX variants (7 / 8 / 8200 / 9 / 10)
+
+Other items on the longer-term roadmap:
+  - Single Android app with automatic skin-switch between aircraft
+  - PFD / MFD secondary display app
+  - Second CDU support (Captain + F/O simultaneously)
+  - iOS port (community contribution welcome)
+
+
+================================================================================
   SUPPORT & FEEDBACK
 ================================================================================
 
   GitHub:   https://github.com/diymarcus/FlightPadFMC
-  Website:  silencediy.com
+  Website:  https://silencediy.com
 
   If you enjoy FlightPadFMC, consider supporting development:
   https://www.paypal.com/donate?hosted_button_id=QD3R46HS9RZ3L
 
 ================================================================================
+
+P.S. Captains, I’ve seen quite a few downloads so far—thank you! If you have a moment, I’d love to hear your feedback. I am especially looking for MSFS 2024 users to verify compatibility, as it has currently only been confirmed for MSFS 2020. Blue skies!

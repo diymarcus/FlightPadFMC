@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.virtualfmc.fmc737'
+    namespace 'com.virtualfmc.fbwa320'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.virtualfmc.fmc737"
+        applicationId "com.virtualfmc.fbwa320"
         minSdk 19
         targetSdk 34
         versionCode 1
@@ -27,19 +27,13 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-
-    dexOptions {
-        javaMaxHeapSize "4g"
-        preDexLibraries true
-        threadCount 4
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 
     applicationVariants.all { variant ->
         variant.outputs.all {
-            outputFileName = "737PMDG.apk"
+            outputFileName = "FBWA320.apk"
         }
     }
 }

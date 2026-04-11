@@ -58,15 +58,15 @@ public class SoundPlayer {
             // Create SoundPool - use Builder for API 21+, deprecated constructor for API 19-20
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
                 android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_GAME)
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build();
                 soundPool = new SoundPool.Builder()
-                    .setMaxStreams(5)
+                    .setMaxStreams(1)
                     .setAudioAttributes(audioAttributes)
                     .build();
             } else {
-                soundPool = new SoundPool(5, AudioManager.STREAM_MUSIC, 0);
+                soundPool = new SoundPool(1, AudioManager.STREAM_MUSIC, 0);
             }
 
             // Load the sound from res/raw/button_click.wav

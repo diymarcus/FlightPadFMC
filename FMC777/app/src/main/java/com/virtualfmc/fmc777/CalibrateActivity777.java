@@ -14,10 +14,11 @@ import java.util.*;
 public class CalibrateActivity777 extends Activity {
 
     private static final String[] BUTTON_SEQUENCE = {
-        "SETTINGS_BTN", "CLOSE_BTN", "FMC_LEFT_TEXT", "FMC_LED",
+        "SETTINGS_BTN", "CLOSE_BTN", "FMC_LED",
         "LSK1L","LSK2L","LSK3L","LSK4L","LSK5L","LSK6L",
         "LSK1R","LSK2R","LSK3R","LSK4R","LSK5R","LSK6R",
-        "SCREEN_TL","SCREEN_TR","SCREEN_BL","SCREEN_BR",
+        // Screen corners (TL + BR define the rectangle)
+        "SCREEN_TL","SCREEN_BR",
         "INIT","RTE","DEP ARR","ALTN","CRZ",
         "FIX","LEGS","HOLD","FMC","PROG","EXEC",
         "MENU","NAV", "PREV PAGE","NEXT PAGE",

@@ -66,7 +66,7 @@
         android:inputType="number"
         android:layout_marginBottom="16dp"/>
 
-    <!-- Calibrate Button (COMMENTED OUT - May be needed later)
+    <!--
     <Button
         android:id="@+id/btn_calibrate"
         android:layout_width="match_parent"

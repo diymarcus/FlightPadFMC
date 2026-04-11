@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">A320MCDUPad</string>
+    <string name="server_settings">SimBridge Settings</string>
+    <string name="server_ip_address">SimBridge IP Address</string>
+    <string name="server_port">SimBridge Port (default 8380)</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+</resources>
