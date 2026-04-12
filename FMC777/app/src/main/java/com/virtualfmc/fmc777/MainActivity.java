@@ -325,7 +325,10 @@ public class MainActivity extends Activity {
         try {
             nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, discoveryListener);
             isDiscoveryActive = true;
-            mainHandler.postDelayed(discoveryTimeoutRunnable, 5000);
+            // 15 s window — NsdManager warm-up + router multicast propagation can
+            // easily take 5-8 s on first query, so 5 s was too tight and always
+            // fell through to the manual-IP fallback before discovery resolved.
+            mainHandler.postDelayed(discoveryTimeoutRunnable, 15000);
         } catch (Exception e) {
             Log.e(TAG, "mDNS failed", e);
             isConnecting = false;
@@ -552,7 +555,12 @@ public class MainActivity extends Activity {
 
     @Override protected void onPause() {
         super.onPause();
-        // Disconnect fully when app goes to background — no background connection
+        // Disconnect fully when app goes to background — no background connection.
+        // CRITICAL: unregister NetworkCallback FIRST so onAvailable() can't fire
+        // after we've disconnected and re-trigger startConnectionProcess() while
+        // the app is minimized. Without this, WiFi state changes would cause the
+        // paused app to silently reconnect to the server in the background.
+        unregisterNetworkCallback();
         stopDiscovery();
         mainHandler.removeCallbacksAndMessages(null);
         if (webSocket != null) {
@@ -566,7 +574,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Always reconnect fresh when returning to foreground
+        // Re-register WiFi callback + reconnect fresh when returning to foreground
+        registerNetworkCallback();
         retryCount = 0;
         isConnecting = false;
         startConnectionProcess();

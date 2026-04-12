@@ -1,6 +1,6 @@
 ================================================================================
   FlightPadFMC — Native Android FMC / MCDU for PMDG 737, PMDG 777 & FlyByWire A320
-  Version 0.2.1
+  Version 0.2.15
   By SilenceDIY (Marcus)
   https://github.com/diymarcus/FlightPadFMC
 ================================================================================
@@ -438,6 +438,30 @@ OPEN SOURCE CREDITS
 ================================================================================
   CHANGELOG
 ================================================================================
+
+Version 0.2.15 — April 2026
+---------------------------
+  BUG FIXES:
+  - Fixed reconnect race condition where a stale WebSocket disconnect could
+    clobber the active aircraft state, causing all CDU keys to be silently
+    dropped until the user manually minimized and reopened the Android app.
+    Server now tracks all connected clients and only resets state when the
+    last client disconnects.
+  - Fixed Android apps silently reconnecting to the server while minimized.
+    The WiFi NetworkCallback was not unregistered in onPause, so WiFi state
+    changes could trigger startConnectionProcess() in the background. Now
+    properly unregistered on pause, re-registered on resume. All 3 apps fixed.
+  - Fixed PMDG 737 DEP ARR button not working — Android app sent "DEP" but
+    server expected "DEP ARR". Added alias in the server key map.
+  - mDNS auto-discovery timeout increased from 5 seconds to 15 seconds —
+    Android NsdManager warm-up + router multicast propagation often took
+    longer than 5 seconds, causing auto-discovery to always time out and
+    fall back to manual IP entry.
+  - Removed dead [UI] section from server settings (start_minimized,
+    window_width, window_height were never read by any code).
+
+  CHANGES:
+  + Server version bumped to 0.2.15.
 
 Version 0.2.1 — April 2026
 ---------------------------
