@@ -52,6 +52,7 @@ iFly737MAX_SDK/
 
 # ── PMDG / iFly copyrighted SDK headers (must not redistribute) ─────────
 *.h
+PMDG_*_EVENT_IDs.TXT
 
 # ── Personal notes / dev artifacts / old copies ─────────────────────────
 Notes.txt
