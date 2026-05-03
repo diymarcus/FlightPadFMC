@@ -1,5 +1,5 @@
 ================================================================================
-  FlightPadFMC — Native Android FMC / MCDU for PMDG 737, PMDG 777 & FlyByWire A320
+  FlightPadFMC — Native Android FMC / MCDU for PMDG 737, PMDG 777, FlyByWire A320 & Fenix A320
   Version 0.3.0
   By SilenceDIY (Marcus)
   https://github.com/diymarcus/FlightPadFMC
@@ -8,20 +8,21 @@
 DESCRIPTION
 -----------
 FlightPadFMC turns your Android tablet or phone into a fully functional CDU /
-MCDU for the PMDG 737, PMDG 777 and FlyByWire A320 in Microsoft Flight
-Simulator 2020 and 2024.
+MCDU for the PMDG 737, PMDG 777, FlyByWire A320 and Fenix A320 in Microsoft
+Flight Simulator 2020 and 2024.
 
 Unlike web-based solutions, this is a true native Android app — faster,
 smoother and more responsive. The CDU / MCDU skins are pixel-accurate, touch
 input is calibrated, and the display updates live over your local WiFi.
 
-Three separate Android apps are provided, one per aircraft type:
-  - 737PMDG.apk  — PMDG 737 NGXu (700 / 800 / 900)
-  - 777PMDG.apk  — PMDG 777-300ER / 777F
-  - FBWA320.apk  — FlyByWire A32NX (via SimBridge)
+Four separate Android apps are provided, one per aircraft type:
+  - 737PMDG.apk    — PMDG 737 NGXu (700 / 800 / 900)
+  - 777PMDG.apk    — PMDG 777-300ER / 777F
+  - FBWA320.apk    — FlyByWire A32NX (via SimBridge)
+  - FenixA320.apk  — Fenix A320 v2 (via Fenix's built-in GraphQL server)
 
 One Windows server acts as the bridge between MSFS and the Android apps. The
-same server handles all three aircraft — simply launch the matching app on
+same server handles all four aircraft — simply launch the matching app on
 your tablet and the server figures out the rest.
 
 Supported platforms:
@@ -183,8 +184,8 @@ already have the MobiFlight WASM module installed for other purposes you
 can leave it; FlightPadFMC simply does not use it any more. Skip to STEP 3.
 
 
-STEP 3 — Install FlyByWire SimBridge   (skip if you only use the 737 / 777)
----------------------------------------------------------------------------
+STEP 3 — Install FlyByWire SimBridge   (skip if you only use the 737 / 777 or Fenix)
+------------------------------------------------------------------------------------
 The A320 support proxies the MCDU through FlyByWire's own SimBridge tool.
 SimBridge is free and maintained by the FlyByWire team, and it is installed
 through the FlyByWire A32NX installer — you do not need a separate download.
@@ -282,16 +283,17 @@ STEP 4 — Run the FlightPadFMC Server
 
 STEP 5 — Install the Android App(s)
 -----------------------------------
-Three APKs are provided, one per aircraft. Install only the one(s) you fly:
+Four APKs are provided, one per aircraft. Install only the one(s) you fly:
 
-    737PMDG.apk   — for PMDG 737 NGXu
-    777PMDG.apk   — for PMDG 777
-    FBWA320.apk   — for FlyByWire A32NX
+    737PMDG.apk    — for PMDG 737 NGXu
+    777PMDG.apk    — for PMDG 777
+    FBWA320.apk    — for FlyByWire A32NX
+    FenixA320.apk  — for Fenix A320 v2
 
 To install:
   1. IMPORTANT — If you already have an older version of the same
      FlightPadFMC app installed, uninstall it first (Android Settings >
-     Apps > 737FMCPad / 777FMCPad / FBWA320 > Uninstall). Installing a
+     Apps > 737FMCPad / 777FMCPad / FBWA320 / FenixA320 > Uninstall). Installing a
      new APK on top of an old one can fail with a "package conflict" /
      "app not installed" error because the signing keys between builds
      may differ. Uninstalling the old version first avoids this.
@@ -323,9 +325,10 @@ STEP 6 — Connect
 ----------------
   1. Make sure the PC and the Android device are on the same WiFi / LAN.
   2. Launch the matching app on your tablet:
-       - 737PMDG -> PMDG 737 loaded
-       - 777PMDG -> PMDG 777 loaded
-       - FBWA320 -> A32NX loaded + SimBridge running
+       - 737PMDG   -> PMDG 737 loaded
+       - 777PMDG   -> PMDG 777 loaded
+       - FBWA320   -> A32NX loaded + SimBridge running
+       - FenixA320 -> Fenix A320 v2 loaded (no extra setup)
   3. The app auto-discovers the server via mDNS. No IP entry needed in most
      home networks.
   4. If auto-discovery fails: open the in-app Settings, switch mode to
@@ -399,8 +402,13 @@ FlightPadFMC adds support for aircraft that do expose the missing data.
     SimBridge has no data to forward. This was verified on a live A32NX by
     triggering FMGC1 failures and observing that the annunciators never lit
     up on the real cockpit MCDU in the sim — it is an FBW limitation, not a
-    FlightPadFMC bug. Planned to light up in a future release once Fenix A320
-    support is added, since Fenix exposes all annunciators as L:Variables.
+    FlightPadFMC bug. The slot-remap is wired and ready to fire if/when a
+    future SimBridge release starts pushing the data; until then the FBW
+    annunciators are decorative-only.
+
+    Fenix A320 users: the equivalent annunciator slots (FM1, IND, RDY, FM,
+    FM2 horizontal + FAIL / FM / MCDU MENU vertical) DO drive live from
+    Fenix's GraphQL stream and behave correctly during normal flight.
 
   FBWA320 — certain MCDU pages may show placeholder characters
     On some MCDU pages where the FBW HTML MCDU gauge uses special cockpit
@@ -444,6 +452,13 @@ OPEN SOURCE CREDITS
 Version 0.3.0 — May 2026
 ------------------------
   NEW:
+  + Fenix A320 v2 support via new FenixA320 Android app
+      - Server proxies Fenix's built-in GraphQL stream (port 8083) — no
+        SimBridge, no MobiFlight WASM, no extra install needed
+      - Renders MCDU + 7-slot annunciator strip; key input via GraphQL
+        writeInt mutations on system.switches.S_CDU1_KEY_*
+      - Live annunciators (FM1 / IND / RDY / FM / FM2 + FAIL + MCDU MENU)
+        verified end-to-end against the in-sim Fenix MCDU
   + PMDG 737 NG3 bezel annunciators end-to-end — MSG, OFST, CALL, FAIL
       drawn on the keypad bezel (MSG/OFST right strip, CALL/FAIL left
       strip), driven directly from the PMDG SDK alongside EXEC. Same
