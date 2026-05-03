@@ -75,9 +75,14 @@ Cert/
 # ── Python build output ─────────────────────────────────────────────────
 __pycache__/
 *.pyc
-dist/
 build/
 *.spec
+
+# ── dist/ — publish FlightPadFMCServer.exe + SimConnect DLLs only
+#    Exclude per-user runtime state (logs + settings) from the repo
+dist/FlightPadFMC_log.txt
+dist/FlightPadFMC_log_old.txt
+dist/settings.ini
 
 # ── External SDKs / upstream project clones (not ours to redistribute) ──
 WASM/
