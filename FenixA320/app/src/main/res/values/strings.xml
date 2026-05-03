@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FenixA320</string>
+    <string name="server_settings">Server Settings</string>
+    <string name="server_ip_address">Server IP Address</string>
+    <string name="server_port">Server Port (default 8765)</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+</resources>

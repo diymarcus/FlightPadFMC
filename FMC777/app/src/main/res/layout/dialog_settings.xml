@@ -66,18 +66,32 @@
         android:inputType="number"
         android:layout_marginBottom="16dp"/>
 
-    <!--
+    <!-- Calibration buttons hidden — measured defaults baked into CDUView
+         resetToSafeDefaults() handle every device out of the box. Re-enable
+         only if a future skin change moves the bezel labels.
     <Button
         android:id="@+id/btn_calibrate"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="📐 Calibrate Touch Areas"
+        android:text="📐 Calibrate Touch Areas (Full)"
         android:textSize="14sp"
         android:textStyle="bold"
         android:background="#ff8c00"
         android:textColor="#FFFFFF"
         android:padding="12dp"
         android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btn_calibrate_leds"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="💡 Calibrate LEDs Only (EXEC + MSG / OFST / DSPY / FAIL)"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:background="#ffaa33"
+        android:textColor="#FFFFFF"
+        android:padding="12dp"
+        android:layout_marginBottom="16dp"/>
     -->
 
     <!-- Sound Toggle Checkbox -->

@@ -1,4 +1,4 @@
-package com.virtualfmc.fbwa320;
+package com.virtualfmc.fenixa320;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -49,16 +49,15 @@ public class MCDUView extends View {
     private float settingsX = 0.11016846f, settingsY = 0.028602801f;
     private float closeX    = 0.8925476f,  closeY    = 0.0309712f;
 
-    // 8 visual LED slots — mirrors FenixA320's 8-slot model (2026-05-01 rework)
-    // so the same skin renders identically across both apps. Slots driven by
-    // SimBridge: 0=FM1, 1=FM2, 2=FM (=SimBridge "blank"), 3=IND, 4=RDY.
-    // Slots 5 (FAIL) and 6 (MCDU MENU) are never driven — SimBridge doesn't
-    // expose those annunciators — so they stay dimmed always for cosmetic
-    // panel parity with Fenix. Slot 7 (FM_TOP) mirrors slot 2 via LED_STATE_SOURCE.
+    // 8 visual LED slots — but only 7 server-driven states (FM1, FM2, FM, IND,
+    // RDY, FAIL, MCDU_MENU). Index 7 is a SECOND visual for FM: a horizontal
+    // rectangle in the top strip (FBW's "--" slot). Both index 2 (vertical text
+    // FM, left side) and index 7 (top strip rectangle) light when fm=true.
+    // LED_STATE_SOURCE maps each visual slot to the ledOn[] index that drives it.
     private static final String[] LED_NAMES = {"FM1", "FM2", "FM", "IND", "RDY", "FAIL", "MCDU MENU", "FM"};
     private static final int[] LED_STATE_SOURCE = {0, 1, 2, 3, 4, 5, 6, 2}; // slot 7 mirrors FM (idx 2)
 
-    // OFF colors (very dim — proper unlit-LED look)
+    // OFF colors (very dim)
     private static final int[] LED_COLOR_OFF = {
         Color.rgb(50, 25, 0),   // FM1       — dim amber
         Color.rgb(50, 25, 0),   // FM2       — dim amber
@@ -81,17 +80,19 @@ public class MCDUView extends View {
         Color.rgb(255, 160, 0)  // FM_TOP    — amber
     };
 
-    // LED positions (normalized 0..1) — hardcoded from Marcus's 2026-05-01
-    // 8-point Fenix calibration (same `mcdu_skin_a320` skin, so the values
-    // transfer verbatim to FBW).
-    private final float[] ledX7 = new float[8];
-    private final float[] ledY7 = new float[8];
-    // true = stacked vertical text; false = horizontal text
+    // LED positions (normalized 0..1), set from calibration or defaults.
+    // Indices 0,1,3,4 (FM1, FM2, IND, RDY) and 7 (FM_TOP) reuse the FBW skin's
+    // 5-slot top strip. Indices 2,5,6 (FM, FAIL, MCDU MENU) render as stacked
+    // vertical TEXT and are parked off-screen at y=1.2 until calibrated.
+    private final float[] ledX7 = {0.27807656f, 0.7175136f,  0.5f, 0.39011383f, 0.49562606f, 0.5f, 0.5f, 0.60655195f};
+    private final float[] ledY7 = {0.023003776f,0.023003776f,1.2f, 0.023003776f,0.023003776f,1.2f, 1.2f, 0.023003776f};
+    // true = render as stacked vertical text instead of a horizontal rectangle
     private static final boolean[] LED_TEXT_VERTICAL = {false, false, true, false, false, true, true, false};
-    private final boolean[] ledOn = new boolean[7];  // 7 server-driven states (only 5 used in FBW)
+    private final boolean[] ledOn = new boolean[7];  // 7 server-driven states
 
-    // DEBUG: force all 8 visual LEDs ON regardless of server data — set true
-    // to verify positioning after future skin/calibration changes.
+    // DEBUG: force all 8 visual LEDs to render in their ON state regardless of
+    // server data. Use to verify position + colour after calibration. Set back
+    // to false before shipping.
     private static final boolean LED_TEST_ALL_ON = false;
 
     // Screen rect corners from calibration (normalized 0..1)
@@ -112,8 +113,9 @@ public class MCDUView extends View {
     private final Paint ledBoxPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint ledLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    // Connection status overlay — shown on the MCDU screen area when not connected.
-    // Big amber centered text replaces the char grid until cleared (setConnectionStatus(null)).
+    // Connection status overlay — shown on the MCDU screen area when not connected
+    // or while waiting for live data. Big amber centered text replaces the char
+    // grid until cleared (setConnectionStatus(null)).
     private String connectionStatus = null;
     private final Paint statusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -276,10 +278,10 @@ public class MCDUView extends View {
             SharedPreferences prefs =
                 context.getSharedPreferences("CalibrationDataA320", Context.MODE_PRIVATE);
 
-            // Start from code defaults — any individual key with a valid saved
-            // value overrides below. Mirror of FenixA320's loadCalibrationData
-            // pattern (do NOT early-return on calibration_complete; LED-only
-            // saves leave that flag false but their LED keys are still valid).
+            // Start from code defaults — any individual key that has a valid
+            // saved value will override below. This way a partial calibration
+            // (e.g. LED-only mode) is still respected, instead of being thrown
+            // out wholesale because the FULL-pass completion flag is unset.
             resetToSafeDefaults();
 
             // Settings / close icons
@@ -302,7 +304,7 @@ public class MCDUView extends View {
                 calibScreenR = scrBRx; calibScreenB = scrBRy;
             }
 
-            // 8 LED positions — same key list as FenixA320 (shared skin)
+            // 8 LED positions (7 server-driven + FM_TOP mirror at slot 7)
             String[] ledKeys = {"LED_FM1","LED_FM2","LED_FM","LED_IND","LED_RDY","LED_FAIL","LED_MCDU_MENU","LED_FM_TOP"};
             for (int i = 0; i < 8; i++) {
                 float lx = prefs.getFloat(ledKeys[i] + "_x", -1f);
@@ -328,18 +330,16 @@ public class MCDUView extends View {
         calibScreenL = 0.15924072f; calibScreenT = 0.07854814f;
         calibScreenR = 0.8425598f;  calibScreenB = 0.4440826f;
 
-        // 8-slot defaults — Marcus's 2026-05-01 FenixA320 calibration (same
-        // mcdu_skin_a320 as FBW, so values transfer 1:1). FAIL + MCDU MENU
-        // are decorative on FBW (server never drives them) but their positions
-        // must still be set so the dim text appears in the right places.
+        // Hardcoded from Marcus's 2026-05-01 8-point LED calibration on
+        // FenixA320 (see CHANGELOG). Saved prefs override these per-device.
         ledX7[0] = 0.2827336f;   ledY7[0] = 0.023822008f; // FM1
         ledX7[1] = 0.7218223f;   ledY7[1] = 0.023822008f; // FM2
-        ledX7[2] = 0.07136303f;  ledY7[2] = 0.7963769f;   // FM        — vertical text (left, below FAIL)
+        ledX7[2] = 0.07136303f;  ledY7[2] = 0.7963769f;   // FM        — vertical text (left side, below FAIL)
         ledX7[3] = 0.3919219f;   ledY7[3] = 0.023822008f; // IND
         ledX7[4] = 0.50111026f;  ledY7[4] = 0.023822008f; // RDY
-        ledX7[5] = 0.07136303f;  ledY7[5] = 0.732234f;    // FAIL      — vertical text (left, above FM)  — always dim on FBW
-        ledX7[6] = 0.9308958f;   ledY7[6] = 0.7575765f;   // MCDU MENU — vertical text (right)             — always dim on FBW
-        ledX7[7] = 0.6091501f;   ledY7[7] = 0.023822008f; // FM_TOP    — top strip text (between RDY+FM2)
+        ledX7[5] = 0.07136303f;  ledY7[5] = 0.732234f;    // FAIL      — vertical text (left side, above FM)
+        ledX7[6] = 0.9308958f;   ledY7[6] = 0.7575765f;   // MCDU MENU — vertical text (right side)
+        ledX7[7] = 0.6091501f;   ledY7[7] = 0.023822008f; // FM_TOP    — top strip rectangle (between RDY and FM2)
     }
 
     // ─── Layout ───────────────────────────────────────────────────────────────
@@ -491,9 +491,10 @@ public class MCDUView extends View {
         textYOffset  = cellH * 0.80f;
         smallYOffset = cellH * 0.75f;
 
-        // LED box + text size scale with the DRAWN skin height (imgScaleH)
-        // rather than raw view height — keeps annunciators proportional on
-        // letterboxed tablets where view height ≫ skin height.
+        // LED box + text scale with the DRAWN skin height (imgScaleH), not the
+        // raw view height. On letterboxed tablets the view is taller than the
+        // skin, and using h would make annunciators disproportionately huge.
+        // imgScaleH falls back to h when the skin is missing.
         float skinH = (skin != null) ? imgScaleH : h;
         ledBoxW = skinH * 0.038f;
         ledBoxH = skinH * 0.014f;
@@ -519,7 +520,9 @@ public class MCDUView extends View {
         canvas.drawRect(actualScreen, screenPaint);
 
         if (connectionStatus != null && !connectionStatus.isEmpty()) {
-            // Big amber status text replaces the char grid until live data clears it.
+            // Draw connection status message centered on the MCDU screen area.
+            // Big amber text, impossible to miss — replaces the character grid
+            // until a live connection clears the status (setConnectionStatus(null)).
             float screenH = actualScreen.height();
             statusPaint.setTextSize(screenH * 0.07f);
             float cx = actualScreen.centerX();
@@ -530,6 +533,7 @@ public class MCDUView extends View {
             for (int i = 0; i < lines.length; i++) {
                 canvas.drawText(lines[i], cx, startY + i * lineSpacing, statusPaint);
             }
+            // Skip the normal char-grid render when overlay is showing
             drawLedIndicators(canvas);
             if (pressedArea != null) {
                 float px = imgOffsetX + pressedArea.rect.centerX() * imgScaleW;
@@ -575,36 +579,55 @@ public class MCDUView extends View {
         for (int i = 0; i < 8; i++) {
             float px = imgOffsetX + ledX7[i] * imgScaleW;
             float py = imgOffsetY + ledY7[i] * imgScaleH;
-            // Slot 7 (FM_TOP) mirrors slot 2 (FM) — both light when blank/FM is true
+            // Slot 7 (FM_TOP) mirrors slot 2 (FM) — both light when fm=true
             boolean lit = LED_TEST_ALL_ON || ledOn[LED_STATE_SOURCE[i]];
-            int textCol = lit ? LED_COLOR_ON[i] : LED_COLOR_OFF[i];
 
             if (LED_TEXT_VERTICAL[i]) {
-                // Stacked vertical text (FM, FAIL, MCDU MENU) — characters
-                // upright, one per line, top-to-bottom (real Airbus screen-print).
+                // Rotated vertical text annunciator (FM, FAIL, MCDU MENU).
+                // No background rectangle — just the colored text rotated -90°
+                // so it reads bottom-to-top, the way real Airbus annunciators do.
+                // OFF state uses a dimmed version of the ON color (~55%) so the
+                // label stays readable on the grey skin even when not lit; the
+                // near-black LED_COLOR_OFF values are tuned for a backlit
+                // rectangle and would be invisible as plain text.
+                // OFF state uses the dim LED_COLOR_OFF values — when the
+                // server reports the annunciator inactive, the text reads as
+                // a near-unlit LED (very dark), brightening to LED_COLOR_ON
+                // when active.
+                int textCol = lit ? LED_COLOR_ON[i] : LED_COLOR_OFF[i];
+
+                // Stack each character on its own line — letters stay upright,
+                // word reads top-to-bottom (e.g. F\nA\nI\nL). Real Airbus panels
+                // print annunciator labels this way.
                 ledLabelPaint.setColor(textCol);
                 ledLabelPaint.setTextSize(ledBoxH * 1.152f);
-                ledLabelPaint.setFakeBoldText(true);
+                ledLabelPaint.setFakeBoldText(true);   // thicker strokes for legibility
 
                 String name = LED_NAMES[i];
-                float lineH = ledBoxH * 1.152f;
+                float lineH = ledBoxH * 1.152f;          // line spacing per character
                 Paint.FontMetrics fm = ledLabelPaint.getFontMetrics();
-                float topY = py - ((name.length() - 1) * lineH) / 2f;
+                float topY = py - ((name.length() - 1) * lineH) / 2f;  // vertical centre on py
                 for (int k = 0; k < name.length(); k++) {
                     char ch = name.charAt(k);
-                    if (ch == ' ') continue;
+                    if (ch == ' ') continue;           // render space as a gap
                     float charY = topY + k * lineH - (fm.ascent + fm.descent) / 2f;
                     canvas.drawText(String.valueOf(ch), px, charY, ledLabelPaint);
                 }
-                ledLabelPaint.setFakeBoldText(false);
+                ledLabelPaint.setFakeBoldText(false);  // reset for the small horizontal labels below
             } else {
-                // Horizontal bold text annunciator (top strip slots).
+                // Horizontal text annunciator (top strip: FM1, IND, RDY, FM, FM2).
+                // OFF state uses the dim LED_COLOR_OFF — text is barely visible
+                // until the server reports the annunciator active.
+                int textCol = lit ? LED_COLOR_ON[i] : LED_COLOR_OFF[i];
+
                 ledLabelPaint.setColor(textCol);
                 ledLabelPaint.setTextSize(ledBoxH * 1.152f);
                 ledLabelPaint.setFakeBoldText(true);
+
                 Paint.FontMetrics fm = ledLabelPaint.getFontMetrics();
                 float charY = py - (fm.ascent + fm.descent) / 2f;
                 canvas.drawText(LED_NAMES[i], px, charY, ledLabelPaint);
+
                 ledLabelPaint.setFakeBoldText(false);
             }
         }
@@ -661,14 +684,12 @@ public class MCDUView extends View {
         postInvalidate();
     }
 
-    /** Set individual LED state. index map (matches FenixA320):
-     *  0=FM1, 1=FM2, 2=FM (SimBridge "blank"), 3=IND, 4=RDY,
-     *  5=FAIL (decorative — never set), 6=MCDU_MENU (decorative — never set). */
+    /** Set individual LED state. index: 0=FM1, 1=FM2, 2=FM, 3=IND, 4=RDY, 5=FAIL, 6=MCDU_MENU */
     public void setLedState(int index, boolean on) {
         if (index >= 0 && index < 7) { ledOn[index] = on; postInvalidate(); }
     }
 
-    /** Convenience: set RDY (index 4) — used for SimBridge connected state. */
+    /** Convenience: set RDY (index 4) — used as the connected-state indicator. */
     public void setLedState(boolean on) { setLedState(4, on); }
 
     public boolean getLedState(int index) {

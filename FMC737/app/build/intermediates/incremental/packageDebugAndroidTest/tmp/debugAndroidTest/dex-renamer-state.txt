@@ -1,4 +1,0 @@
-#Fri Apr 03 19:58:20 BST 2026
-base.0=E\:\\NextCloud\\FlightPadFMC\\FMC737\\app\\build\\intermediates\\dex\\debugAndroidTest\\mergeDexDebugAndroidTest\\classes.dex
-path.0=classes.dex
-renamed.0=classes.dex

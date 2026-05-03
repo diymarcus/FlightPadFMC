@@ -1,4 +1,4 @@
-package com.virtualfmc.fbwa320;
+package com.virtualfmc.fenixa320;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -150,12 +150,10 @@ public class MainActivity extends Activity {
                 int end = s.indexOf('}', i);
                 int nextOpen = s.indexOf('{', i + 1);
                 // Malformed wire token: another '{' appears before the closing
-                // '}'. This happens on FBW's SEC INDEX page where the wire
-                // string ships as "{cyan}{COPY{sp}ACTIVE{end}" — the literal
-                // '{' before "COPY" is not a tag, it's a stray. FBW's HTML MCDU
-                // hides it; we treat it as zero-width and let the inner {sp}
-                // parse normally. Without this, the outer { would consume
-                // "COPY{sp" as one bogus tag and drop the word.
+                // '}'. FBW SimBridge ships "{cyan}{COPY{sp}ACTIVE{end}" on the
+                // SEC INDEX page — the stray '{' before "COPY" isn't a tag.
+                // FBW's HTML MCDU hides it; we treat it as zero-width so the
+                // inner {sp} parses normally and "COPY ACTIVE" survives.
                 if (end > i && nextOpen != -1 && nextOpen < end) {
                     i++;
                     continue;
@@ -283,13 +281,17 @@ public class MainActivity extends Activity {
      *  slash). We translate those codepoints so the Android app matches. */
     private char translateFbwChar(char c) {
         switch (c) {
-            case '|': return '/';   // FBW font: '|' glyph is a slash
-            case '_': return '▮';   // FBW wire uses '_' for amber entry-placeholder
-                                    //   boxes (CO RTE, FLT NBR, FROM/TO etc.); HTML
-                                    //   MCDU styles them via CSS. Map to '▮' (Black
-                                    //   Vertical Rectangle) — same glyph FenixA320
-                                    //   uses for '#'.
-            default:  return c;
+            case '|':      return '/';        // FBW font: '|' glyph is a slash
+            case '£': return '←';   // £ → ←  (Fenix page-prev arrow glyph)
+            case '¢': return '→';   // ¢ → →  (Fenix page-next arrow glyph)
+            case '#': return '▮';   // # → ▮  (Airbus MCDU entry-placeholder box —
+                                              //         Fenix wire uses '#' to mean
+                                              //         "draw an entry box". '▮' is
+                                              //         the Unicode "Black Vertical
+                                              //         Rectangle" — tall+filled,
+                                              //         matches MSFS Fenix amber LED
+                                              //         entry-box look closest.)
+            default:       return c;
         }
     }
 
@@ -518,13 +520,13 @@ public class MainActivity extends Activity {
                             retryCount   = 0;
                             updateStatus("\u25cf Connected", COLOR_CONNECTED);
                             Log.d(TAG, "Server connected");
-                            // Identify as A320 to the server
+                            // Identify as FENIXA320 to the server
                             try {
                                 JSONObject identify = new JSONObject();
                                 identify.put("type", "identify");
-                                identify.put("aircraft", "A320");
+                                identify.put("aircraft", "FENIXA320");
                                 ws.sendText(identify.toString());
-                                Log.d(TAG, "Sent identify: A320");
+                                Log.d(TAG, "Sent identify: FENIXA320");
                             } catch (Exception e) {
                                 Log.e(TAG, "Error sending identify", e);
                             }
@@ -573,7 +575,7 @@ public class MainActivity extends Activity {
                 @Override public void run() { startConnectionProcess(); }
             }, 3000);
         } else {
-            updateStatus("\u25cb Waiting for SimBridge...", COLOR_DEFAULT);
+            updateStatus("\u25cb Connecting to Server...", COLOR_DEFAULT);
             mainHandler.postDelayed(new Runnable() {
                 @Override public void run() { startConnectionProcess(); }
             }, 30000);
@@ -705,25 +707,28 @@ public class MainActivity extends Activity {
                       "", ALIGN_RIGHT,
                       false);
 
-            // Annunciators → LED states (0=FM1, 1=IND, 2=RDY, 3=--, 4=FM2)
+            // Annunciators → LED states. Fenix MCDU has 7 indicators
+            // (0=FM1, 1=FM2, 2=FM, 3=IND, 4=RDY, 5=FAIL, 6=MCDU_MENU).
+            // Server normalises Fenix dataref values to these annunciator keys.
             JSONObject ann = left.optJSONObject("annunciators");
             if (ann != null) {
-                final boolean fm1   = ann.optBoolean("fm1",   false);
-                final boolean ind   = ann.optBoolean("ind",   false);
-                final boolean rdy   = ann.optBoolean("rdy",   false);
-                final boolean blank = ann.optBoolean("blank", false);
-                final boolean fm2   = ann.optBoolean("fm2",   false);
+                final boolean fm1       = ann.optBoolean("fm1",       false);
+                final boolean fm2       = ann.optBoolean("fm2",       false);
+                final boolean fm        = ann.optBoolean("fm",        false);
+                final boolean ind       = ann.optBoolean("ind",       false);
+                final boolean rdy       = ann.optBoolean("rdy",       false);
+                final boolean fail      = ann.optBoolean("fail",      false);
+                final boolean mcduMenu  = ann.optBoolean("mcdu_menu", false);
                 mainHandler.post(new Runnable() {
                     @Override public void run() {
                         if (mcduView == null) return;
-                        // Index map matches FenixA320 (2026-05-01 rework):
-                        // 0=FM1, 1=FM2, 2=FM (SimBridge "blank"), 3=IND, 4=RDY.
-                        // Slots 5/6 (FAIL/MCDU_MENU) decorative-only on FBW.
                         mcduView.setLedState(0, fm1);
                         mcduView.setLedState(1, fm2);
-                        mcduView.setLedState(2, blank);
+                        mcduView.setLedState(2, fm);
                         mcduView.setLedState(3, ind);
                         mcduView.setLedState(4, rdy);
+                        mcduView.setLedState(5, fail);
+                        mcduView.setLedState(6, mcduMenu);
                     }
                 });
             }
@@ -788,7 +793,9 @@ public class MainActivity extends Activity {
 
     /** Update the status bar. Always appends IP:port if configured.
      *  Also mirrors the message onto the MCDU screen as a big-amber overlay
-     *  while not connected — see CDU-screen connection-status overlay (2026-04-12). */
+     *  while not connected — so users see "Connecting..." / "Retry N/5" /
+     *  "Disconnected" instead of a blank screen. Cleared automatically when
+     *  the next live screen update arrives. */
     private void updateStatus(final String label, final int color) {
         final String addr = (serverIp != null && !serverIp.isEmpty())
             ? "   " + serverIp + ":" + serverPort : "";
@@ -842,12 +849,33 @@ public class MainActivity extends Activity {
             }
         });
         builder.setNegativeButton(R.string.cancel, null);
-        // NOTE: The "Calibrate LEDs Only" button (btn_calibrate_leds) and
-        // its click handler were removed after calibration values were baked
-        // into MCDUView.java defaults (2026-04-11). The XML element is
-        // commented out in dialog_settings.xml — uncomment both that and
-        // this handler if the skin ever needs recalibration.
-        builder.show();
+
+        final AlertDialog dialog = builder.create();
+        dialog.show();
+
+        Button btnCalFull = dialogView.findViewById(R.id.btn_calibrate);
+        if (btnCalFull != null) {
+            btnCalFull.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    dialog.dismiss();
+                    Intent it = new Intent(MainActivity.this, CalibrateActivityA320.class);
+                    it.putExtra(CalibrateActivityA320.EXTRA_MODE, CalibrateActivityA320.MODE_FULL);
+                    startActivity(it);
+                }
+            });
+        }
+
+        Button btnCalLeds = dialogView.findViewById(R.id.btn_calibrate_leds);
+        if (btnCalLeds != null) {
+            btnCalLeds.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    dialog.dismiss();
+                    Intent it = new Intent(MainActivity.this, CalibrateActivityA320.class);
+                    it.putExtra(CalibrateActivityA320.EXTRA_MODE, CalibrateActivityA320.MODE_LEDS);
+                    startActivity(it);
+                }
+            });
+        }
     }
 
     // ─── WiFi reconnect ───────────────────────────────────────────────────────

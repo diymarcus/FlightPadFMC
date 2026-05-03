@@ -268,7 +268,37 @@ public class MainActivity extends Activity {
             }
         });
         builder.setNegativeButton(R.string.cancel, null);
-        builder.show();
+
+        final AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Calibrate buttons — full sweep + LEDs-only quick recalibration.
+        // findViewById can return null when the buttons are visibility="gone"
+        // in dialog_settings.xml; null-check keeps the click wiring safe in
+        // either state (visible during calibration pass, gone post-bake).
+        Button btnCalFull = dialogView.findViewById(R.id.btn_calibrate);
+        if (btnCalFull != null) {
+            btnCalFull.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    dialog.dismiss();
+                    Intent it = new Intent(MainActivity.this, CalibrateActivity737.class);
+                    it.putExtra(CalibrateActivity737.EXTRA_MODE, CalibrateActivity737.MODE_FULL);
+                    startActivity(it);
+                }
+            });
+        }
+
+        Button btnCalLeds = dialogView.findViewById(R.id.btn_calibrate_leds);
+        if (btnCalLeds != null) {
+            btnCalLeds.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    dialog.dismiss();
+                    Intent it = new Intent(MainActivity.this, CalibrateActivity737.class);
+                    it.putExtra(CalibrateActivity737.EXTRA_MODE, CalibrateActivity737.MODE_LEDS);
+                    startActivity(it);
+                }
+            });
+        }
     }
 
     private void resetScreen() {
@@ -427,13 +457,27 @@ public class MainActivity extends Activity {
                                         });
                                     }
                                 } else if (data.getString("type").equals("led_update")) {
-                                    // Handle dedicated LED update
+                                    // Dedicated annunciator update from server. Optional
+                                    // "name" field selects which annunciator to drive
+                                    // (EXEC | MSG | OFST | CALL | FAIL); legacy messages
+                                    // without "name" still drive EXEC.
                                     final boolean ledOn = data.getBoolean("led_on");
+                                    final String name = data.optString("name", "EXEC");
+                                    Log.d(TAG, "LED " + name + ": " + (ledOn ? "ON" : "OFF"));
                                     mainHandler.post(new Runnable() {
                                         @Override
                                         public void run() {
-                                            if (cduView != null) {
+                                            if (cduView == null) return;
+                                            if (name.equals("EXEC")) {
                                                 cduView.setLedState(ledOn);
+                                            } else if (name.equals("MSG")) {
+                                                cduView.setAnnunciatorState(CDUView.ANN_MSG, ledOn);
+                                            } else if (name.equals("OFST")) {
+                                                cduView.setAnnunciatorState(CDUView.ANN_OFST, ledOn);
+                                            } else if (name.equals("CALL")) {
+                                                cduView.setAnnunciatorState(CDUView.ANN_CALL, ledOn);
+                                            } else if (name.equals("FAIL")) {
+                                                cduView.setAnnunciatorState(CDUView.ANN_FAIL, ledOn);
                                             }
                                         }
                                     });
@@ -516,6 +560,14 @@ public class MainActivity extends Activity {
                     }
                     tvStatus.setText(msg);
                 }
+                // Mirror status onto CDU screen as a big-amber overlay while not connected.
+                if (cduView != null) {
+                    if (msg.contains("Connected") && !msg.contains("Disconnected")) {
+                        cduView.setConnectionStatus(null);
+                    } else {
+                        cduView.setConnectionStatus(msg);
+                    }
+                }
             }
         });
     }
@@ -534,7 +586,10 @@ public class MainActivity extends Activity {
             mainHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    cduView.updateScreen(screenSymbols, screenColors);
+                    if (cduView != null) {
+                        cduView.setConnectionStatus(null);   // clear overlay — live data takes over
+                        cduView.updateScreen(screenSymbols, screenColors);
+                    }
                 }
             });
         } catch (Exception e) {
@@ -594,6 +649,9 @@ public class MainActivity extends Activity {
         super.onResume();
         // Re-register WiFi callback + reconnect fresh when returning to foreground
         registerNetworkCallback();
+        // Re-read calibration prefs so changes from CalibrateActivity737
+        // (LED-only or full pass) take effect immediately without restart.
+        if (cduView != null) cduView.reloadCalibration(this);
         retryCount = 0;
         isConnecting = false;
         startConnectionProcess();

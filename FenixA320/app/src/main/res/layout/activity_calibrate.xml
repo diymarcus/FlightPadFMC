@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- Instruction bar — anchored to top, fixed height -->
+    <LinearLayout
+        android:id="@+id/overlay_top"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:orientation="vertical"
+        android:padding="6dp"
+        android:background="#000000">
+
+        <TextView
+            android:id="@+id/tv_instruction"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tap target button on skin"
+            android:textColor="#FFFF00"
+            android:textSize="13sp"
+            android:textStyle="bold"/>
+
+        <TextView
+            android:id="@+id/tv_progress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="0 / 0"
+            android:textColor="#AAAAAA"
+            android:textSize="10sp"
+            android:layout_marginTop="2dp"/>
+
+    </LinearLayout>
+
+    <!-- Button bar — anchored to bottom, fixed height -->
+    <LinearLayout
+        android:id="@+id/overlay_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        android:background="#000000">
+
+        <Button
+            android:id="@+id/btn_undo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="UNDO"
+            android:textSize="11sp"
+            android:background="#444444"
+            android:textColor="#FFFFFF"
+            android:layout_marginEnd="4dp"/>
+
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="SAVE"
+            android:textSize="11sp"
+            android:background="#006600"
+            android:textColor="#FFFFFF"/>
+
+    </LinearLayout>
+
+    <!-- MCDU skin — fills the space between the top bar and bottom bar,
+         fully visible and fully tappable (no overlays on top of it). -->
+    <com.virtualfmc.fenixa320.MCDUView
+        android:id="@+id/mcdu_view_cal"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/overlay_top"
+        android:layout_above="@id/overlay_bottom"/>
+
+</RelativeLayout>

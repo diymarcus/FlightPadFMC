@@ -13,8 +13,13 @@ import java.util.*;
 
 public class CalibrateActivity777 extends Activity {
 
-    private static final String[] BUTTON_SEQUENCE = {
-        "SETTINGS_BTN", "CLOSE_BTN", "FMC_LED",
+    public static final String EXTRA_MODE = "calibration_mode";
+    public static final String MODE_FULL  = "full";
+    public static final String MODE_LEDS  = "leds";
+
+    private static final String[] SEQUENCE_FULL = {
+        "SETTINGS_BTN", "CLOSE_BTN",
+        "FMC_LED", "FMC_MSG", "FMC_OFST", "FMC_DSPY", "FMC_FAIL",
         "LSK1L","LSK2L","LSK3L","LSK4L","LSK5L","LSK6L",
         "LSK1R","LSK2R","LSK3R","LSK4R","LSK5R","LSK6R",
         // Screen corners (TL + BR define the rectangle)
@@ -29,6 +34,18 @@ public class CalibrateActivity777 extends Activity {
         ".","0","+/-","Z","SP","DEL","/","CLR",
     };
 
+    /** LEDs-only quick recalibration — just the bezel annunciator positions.
+     *  Use after a skin update, or whenever any annunciator drifts after a
+     *  full pass. Saves only FMC_LED_* / FMC_MSG_* / FMC_OFST_* /
+     *  FMC_DSPY_* / FMC_FAIL_* prefs without overwriting the 70-key
+     *  calibration or the calibration_complete flag. */
+    private static final String[] SEQUENCE_LEDS = {
+        "FMC_LED", "FMC_MSG", "FMC_OFST", "FMC_DSPY", "FMC_FAIL",
+    };
+
+    private String[] BUTTON_SEQUENCE = SEQUENCE_FULL;
+    private boolean ledsOnlyMode = false;
+
     private int currentIndex = 0;
     private final List<float[]> tappedPoints = new ArrayList<float[]>();
     private TextView tvInstruction;
@@ -38,13 +55,22 @@ public class CalibrateActivity777 extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Mode comes from the launching Intent (default = full sweep)
+        String mode = getIntent().getStringExtra(EXTRA_MODE);
+        if (MODE_LEDS.equals(mode)) {
+            BUTTON_SEQUENCE = SEQUENCE_LEDS;
+            ledsOnlyMode = true;
+        }
+
         try {
             LinearLayout root = new LinearLayout(this);
             root.setOrientation(LinearLayout.VERTICAL);
             root.setBackgroundColor(Color.BLACK);
 
             TextView statusBar = new TextView(this);
-            statusBar.setText("CALIBRATION MODE 777 - Tap button centers");
+            statusBar.setText(ledsOnlyMode
+                ? "LED CALIBRATION 777 - Tap centre of EXEC LED, then MSG / OFST / DSPY / FAIL"
+                : "CALIBRATION MODE 777 - Tap button centers");
             statusBar.setTextColor(Color.YELLOW);
             statusBar.setTextSize(10f);
             statusBar.setPadding(5,5,5,5);
@@ -157,7 +183,12 @@ public class CalibrateActivity777 extends Activity {
             }
         }
 
-        editor.putBoolean("calibration_complete", validCount > 10);  // At least 10 valid points
+        // Only the FULL sweep (>10 points) sets calibration_complete.
+        // LEDs-only re-runs leave the flag (and the existing 70-point set)
+        // untouched — matches the FenixA320 LED-only pattern.
+        if (!ledsOnlyMode) {
+            editor.putBoolean("calibration_complete", validCount > 10);
+        }
         editor.apply();
 
         String msg = "Saved " + validCount + " points";

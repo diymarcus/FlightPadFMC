@@ -402,13 +402,28 @@ public class MainActivity extends Activity {
                                         });
                                     }
                                 } else if (type.equals("led_update")) {
-                                    // Dedicated LED-only update from server
+                                    // Dedicated annunciator update from server. Optional
+                                    // "name" field selects which annunciator to drive
+                                    // (EXEC | MSG | OFST | DSPY | FAIL); legacy messages
+                                    // without "name" still drive EXEC.
                                     final boolean ledOn = data.getBoolean("led_on");
-                                    Log.d(TAG, "LED state from led_update: " + ledOn);
+                                    final String name = data.optString("name", "EXEC");
+                                    Log.d(TAG, "LED " + name + ": " + (ledOn ? "ON" : "OFF"));
                                     mainHandler.post(new Runnable() {
                                         @Override
                                         public void run() {
-                                            if (cduView != null) cduView.setLedState(ledOn);
+                                            if (cduView == null) return;
+                                            if (name.equals("EXEC")) {
+                                                cduView.setLedState(ledOn);
+                                            } else if (name.equals("MSG")) {
+                                                cduView.setAnnunciatorState(CDUView.ANN_MSG, ledOn);
+                                            } else if (name.equals("OFST")) {
+                                                cduView.setAnnunciatorState(CDUView.ANN_OFST, ledOn);
+                                            } else if (name.equals("DSPY")) {
+                                                cduView.setAnnunciatorState(CDUView.ANN_DSPY, ledOn);
+                                            } else if (name.equals("FAIL")) {
+                                                cduView.setAnnunciatorState(CDUView.ANN_FAIL, ledOn);
+                                            }
                                         }
                                     });
                                 } else if (type.equals("exec_led")) {
@@ -491,6 +506,14 @@ public class MainActivity extends Activity {
                     }
                     tvStatus.setText(msg);
                 }
+                // Mirror status onto CDU screen as a big-amber overlay while not connected.
+                if (cduView != null) {
+                    if (msg.contains("Connected") && !msg.contains("Disconnected")) {
+                        cduView.setConnectionStatus(null);
+                    } else {
+                        cduView.setConnectionStatus(msg);
+                    }
+                }
             }
         });
     }
@@ -512,6 +535,7 @@ public class MainActivity extends Activity {
                 @Override
                 public void run() {
                     if (cduView != null) {
+                        cduView.setConnectionStatus(null);   // clear overlay — live data takes over
                         cduView.updateScreen(screenSymbols, screenColors);
                         Log.d(TAG, "Screen updated on UI thread");
                     } else {
@@ -574,6 +598,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Pick up any calibration the user just saved in CalibrateActivity777
+        if (cduView != null) cduView.reloadCalibration(this);
         // Re-register WiFi callback + reconnect fresh when returning to foreground
         registerNetworkCallback();
         retryCount = 0;

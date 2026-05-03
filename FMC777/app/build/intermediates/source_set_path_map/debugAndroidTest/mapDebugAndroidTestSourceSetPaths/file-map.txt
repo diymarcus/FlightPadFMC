@@ -1,4 +1,0 @@
-com.virtualfmc.fmc777.test.app-androidTest-0 E:\NextCloud\FlightPadFMC\FMC777\app\build\generated\res\resValues\androidTest\debug
-com.virtualfmc.fmc777.test.app-mergeDebugAndroidTestResources-1 E:\NextCloud\FlightPadFMC\FMC777\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
-com.virtualfmc.fmc777.test.app-mergeDebugAndroidTestResources-2 E:\NextCloud\FlightPadFMC\FMC777\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
-com.virtualfmc.fmc777.test.app-debugAndroidTest-3 E:\NextCloud\FlightPadFMC\FMC777\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources

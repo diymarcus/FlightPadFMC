@@ -29,10 +29,59 @@ public class CDUView extends View {
     private long lastTouchTime = 0;
     private static final long TOUCH_DEBOUNCE_MS = 150;
 
-    // UI element positions (calibrated 2026-04-09)
+    // UI element positions (calibrated 2026-04-09 for top-bar; LED refreshed
+    // 2026-05-03 by Marcus's cockpit-tablet LED-only calibration sweep).
     private float settingsX = 0.1269f, settingsY = 0.0285f;
     private float closeX   = 0.8810f, closeY   = 0.0285f;
-    private float ledX     = 0.8235f, ledY     = 0.5690f;
+    private float ledX     = 0.826781f, ledY     = 0.5711992f;
+
+    // ─── Bezel-strip annunciators (PMDG NG3 layout) ───────────────────────────
+    // Real PMDG NG3 CDU has 4 bezel-mounted annunciators around the screen
+    // (in addition to the EXEC LED below the screen): MSG, OFST, CALL, FAIL.
+    // 737 has NO DSPY (that's 777-only); 777 has NO CALL (that's 737-only).
+    // Each label is rendered as stacked vertical text (one char per line),
+    // bold, no rectangle. Inactive labels stay visible but dimmed —
+    // same pattern Fenix/FBW/FMC777 use.
+    //
+    // Indices:  0 = MSG, 1 = OFST, 2 = CALL, 3 = FAIL
+    static final int ANN_MSG  = 0;
+    static final int ANN_OFST = 1;
+    static final int ANN_CALL = 2;
+    static final int ANN_FAIL = 3;
+
+    private static final String[] ANN_NAMES = {"MSG", "OFST", "CALL", "FAIL"};
+    private static final String[] ANN_PREF_KEYS = {"FMC_MSG", "FMC_OFST", "FMC_CALL", "FMC_FAIL"};
+    // PMDG NG3 sim render colours — verified in-sim 2026-05-03.
+    // MSG renders white in PMDG sim (same as the 777 case — real-cockpit
+    // photos hint amber but PMDG's render is white). OFST/FAIL stay amber,
+    // CALL is white. Flip any of these if PMDG ever changes the render.
+    private static final int[] ANN_COLOR_ON = {
+        Color.rgb(255, 255, 255),  // MSG  — white  (PMDG NG3 in-sim render)
+        Color.rgb(255, 160,   0),  // OFST — amber
+        Color.rgb(255, 255, 255),  // CALL — white
+        Color.rgb(255, 160,   0),  // FAIL — amber
+    };
+    private static final int[] ANN_COLOR_OFF = {
+        Color.rgb( 80,  80, 80),   // dim white
+        Color.rgb( 80,  50,  0),   // dim amber
+        Color.rgb( 80,  80, 80),   // dim white
+        Color.rgb( 80,  50,  0),   // dim amber
+    };
+    // Defaults baked from Marcus's 2026-05-03 cockpit-tablet LED-only
+    // calibration sweep (LogCat `CALIBRATION737` tag). Same provenance
+    // pattern as FMC777 / Fenix / FBW — uncalibrated installs land on the
+    // right NG3 bezel positions out of the box. Indices: 0=MSG, 1=OFST,
+    // 2=CALL, 3=FAIL. Bottom row (OFST, FAIL) carries a -0.004 X / +0.0024 Y
+    // post-cal nudge from 2026-05-03 LED_TEST_ALL_ON visual review (+5px down,
+    // -2px up correction = net +3px down vs raw calibration).
+    private final float[] annX = {0.93464273f, 0.9339102f,  0.06420826f,  0.063475714f};
+    private final float[] annY = {0.7470603f,  0.82442995f, 0.7470603f,   0.82442995f};
+    private final boolean[] annOn = {false, false, false, false};
+
+    // DEBUG: force all 4 bezel annunciators ON regardless of server data —
+    // set true to verify positioning + colours after future skin/calibration
+    // changes, then set back to false. Mirrors FBWA320's LED_TEST_ALL_ON.
+    private static final boolean LED_TEST_ALL_ON = false;
 
     // Screen rect calibration (TL + BR corners) — calibrated 2026-04-09
     private float screenL = 0.1457f, screenT = 0.0792f;
@@ -50,6 +99,17 @@ public class CDUView extends View {
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint ledBoxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // Dedicated paint for the bezel annunciators — system Monospace Bold
+    // (NOT B612 from assets), CENTER-aligned per-char. Mirrors FMC777's
+    // bulletproof pattern so font-metric variance across devices can't
+    // shift the stack horizontally.
+    private final Paint annLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    // Connection status overlay — shown on the CDU screen area when not connected.
+    // Big amber centered text replaces the char grid until cleared (setConnectionStatus(null)).
+    private String connectionStatus = null;
+    private final Paint statusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     private final RectF screenRect = new RectF();
     private final RectF actualScreen = new RectF();
     private final RectF skinRectF = new RectF();
@@ -157,6 +217,17 @@ public class CDUView extends View {
         ledBoxPaint.setStyle(Paint.Style.FILL);
         ledGlowFilter = new BlurMaskFilter(5, BlurMaskFilter.Blur.NORMAL);
 
+        // Connection status overlay paint — big amber text on the CDU screen
+        statusPaint.setColor(Color.rgb(255, 160, 0));  // amber
+        statusPaint.setTextAlign(Paint.Align.CENTER);
+        statusPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+
+        // Annunciator label paint — system Monospace Bold, CENTER-aligned
+        // per char. Each char is drawn independently centred on px so the
+        // stack stays put across devices regardless of which font is loaded.
+        annLabelPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+        annLabelPaint.setTextAlign(Paint.Align.CENTER);
+
         setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -222,38 +293,42 @@ public class CDUView extends View {
     }
 
     private void loadCalibrationData(Context context) {
+        // Always start from safe defaults, then let any saved prefs override
+        // them per-key. This way an LEDs-only save (which leaves
+        // calibration_complete untouched) still applies, and a fresh install
+        // simply keeps the defaults. Same pattern as FMC777 / Fenix / FBW.
+        resetToSafeDefaults();
         try {
             SharedPreferences prefs = context.getSharedPreferences("CalibrationData737", Context.MODE_PRIVATE);
-            boolean isCalibrated = prefs.getBoolean("calibration_complete", false);
 
-            if (isCalibrated) {
-                float sX = prefs.getFloat("SETTINGS_BTN_x", -1f);
-                float sY = prefs.getFloat("SETTINGS_BTN_y", -1f);
-                float cX = prefs.getFloat("CLOSE_BTN_x", -1f);
-                float cY = prefs.getFloat("CLOSE_BTN_y", -1f);
-                float lX  = prefs.getFloat("FMC_LED_x",   -1f);
-                float lY  = prefs.getFloat("FMC_LED_y",   -1f);
-                float sTL_x = prefs.getFloat("SCREEN_TL_x", -1f);
-                float sTL_y = prefs.getFloat("SCREEN_TL_y", -1f);
-                float sBR_x = prefs.getFloat("SCREEN_BR_x", -1f);
-                float sBR_y = prefs.getFloat("SCREEN_BR_y", -1f);
+            float sX = prefs.getFloat("SETTINGS_BTN_x", -1f);
+            float sY = prefs.getFloat("SETTINGS_BTN_y", -1f);
+            if (isValidCalibration(sX, sY)) { settingsX = sX; settingsY = sY; }
 
-                if (isValidCalibration(sX, sY, cX, cY, lX, lY)) {
-                    settingsX = sX; settingsY = sY;
-                    closeX = cX; closeY = cY;
-                    ledX = lX; ledY = lY;
-                    if (isValidCalibration(sTL_x, sTL_y, sBR_x, sBR_y)) {
-                        screenL = sTL_x; screenT = sTL_y;
-                        screenR = sBR_x; screenB = sBR_y;
-                    }
-                } else {
-                    resetToSafeDefaults();
-                }
-            } else {
-                resetToSafeDefaults();
+            float cX = prefs.getFloat("CLOSE_BTN_x", -1f);
+            float cY = prefs.getFloat("CLOSE_BTN_y", -1f);
+            if (isValidCalibration(cX, cY)) { closeX = cX; closeY = cY; }
+
+            float lX = prefs.getFloat("FMC_LED_x", -1f);
+            float lY = prefs.getFloat("FMC_LED_y", -1f);
+            if (isValidCalibration(lX, lY)) { ledX = lX; ledY = lY; }
+
+            for (int i = 0; i < ANN_PREF_KEYS.length; i++) {
+                float ax = prefs.getFloat(ANN_PREF_KEYS[i] + "_x", -1f);
+                float ay = prefs.getFloat(ANN_PREF_KEYS[i] + "_y", -1f);
+                if (isValidCalibration(ax, ay)) { annX[i] = ax; annY[i] = ay; }
+            }
+
+            float sTL_x = prefs.getFloat("SCREEN_TL_x", -1f);
+            float sTL_y = prefs.getFloat("SCREEN_TL_y", -1f);
+            float sBR_x = prefs.getFloat("SCREEN_BR_x", -1f);
+            float sBR_y = prefs.getFloat("SCREEN_BR_y", -1f);
+            if (isValidCalibration(sTL_x, sTL_y, sBR_x, sBR_y)) {
+                screenL = sTL_x; screenT = sTL_y;
+                screenR = sBR_x; screenB = sBR_y;
             }
         } catch (Exception e) {
-            resetToSafeDefaults();
+            // defaults already in place
         }
     }
 
@@ -276,10 +351,17 @@ public class CDUView extends View {
     }
 
     private void resetToSafeDefaults() {
-        // UI Elements (calibrated 2026-04-09)
+        // UI Elements: top-bar from 2026-04-09 calibration, LED + bezel
+        // annunciators from Marcus's 2026-05-03 cockpit-tablet LED-only
+        // calibration sweep. Keep these in sync with the field initialisers
+        // up top.
         settingsX = 0.1269f; settingsY = 0.0285f;
         closeX    = 0.8810f; closeY    = 0.0285f;
-        ledX      = 0.8235f; ledY      = 0.5690f;
+        ledX      = 0.826781f; ledY    = 0.5711992f;
+        annX[ANN_MSG]  = 0.93464273f;  annY[ANN_MSG]  = 0.7470603f;
+        annX[ANN_OFST] = 0.9339102f;   annY[ANN_OFST] = 0.82442995f;
+        annX[ANN_CALL] = 0.06420826f;  annY[ANN_CALL] = 0.7470603f;
+        annX[ANN_FAIL] = 0.063475714f; annY[ANN_FAIL] = 0.82442995f;
         screenL   = 0.1457f; screenT   = 0.0792f;
         screenR   = 0.8592f; screenB   = 0.4427f;
     }
@@ -339,6 +421,32 @@ public class CDUView extends View {
 
     public void setLedState(boolean isOn) {
         ledState = isOn;
+        postInvalidate();
+    }
+
+    /** Set the on/off state of one bezel annunciator (MSG, OFST, CALL, FAIL).
+     *  Use the ANN_* constants for the index. Off state still renders as
+     *  dimmed text so the label remains visible on the bezel. */
+    public void setAnnunciatorState(int annIndex, boolean isOn) {
+        if (annIndex < 0 || annIndex >= annOn.length) return;
+        annOn[annIndex] = isOn;
+        postInvalidate();
+    }
+
+    /** Re-read calibration prefs and redraw. Call from MainActivity.onResume
+     *  so positions saved by CalibrateActivity737 take effect immediately
+     *  when the user returns to the CDU, without an app restart. */
+    public void reloadCalibration(Context context) {
+        loadCalibrationData(context);
+        setupLayout();
+        postInvalidate();
+    }
+
+    /** Show a connection status message on the CDU screen area.
+     *  Pass null or "" to clear the overlay and show the normal CDU character grid.
+     *  Supports "\n" for multi-line messages. */
+    public void setConnectionStatus(String status) {
+        this.connectionStatus = status;
         postInvalidate();
     }
 
@@ -515,6 +623,29 @@ public class CDUView extends View {
         screenPaint.setColor(Color.BLACK);
         canvas.drawRect(actualScreen, screenPaint);
 
+        if (connectionStatus != null && !connectionStatus.isEmpty()) {
+            // Big amber status text replaces the char grid until live data clears it.
+            float screenH = actualScreen.height();
+            statusPaint.setTextSize(screenH * 0.07f);
+            float cx = actualScreen.centerX();
+            float cy = actualScreen.centerY();
+            String[] lines = connectionStatus.split("\n");
+            float lineSpacing = screenH * 0.10f;
+            float startY = cy - ((lines.length - 1) * lineSpacing * 0.5f);
+            for (int i = 0; i < lines.length; i++) {
+                canvas.drawText(lines[i], cx, startY + i * lineSpacing, statusPaint);
+            }
+            drawLedIndicator(canvas);
+            drawAnnunciators(canvas);
+            if (pressedArea != null) {
+                float px = imgOffsetX + pressedArea.rect.centerX() * imgScaleW;
+                float py = imgOffsetY + pressedArea.rect.centerY() * imgScaleH;
+                float radius = (Math.min(pressedArea.rect.width() * imgScaleW, pressedArea.rect.height() * imgScaleH) / 2f) * 0.7f;
+                canvas.drawCircle(px, py, radius, highlightPaint);
+            }
+            return;
+        }
+
         for (int r = 0; r < CDU_ROWS; r++) {
             float rowY = actualScreen.top + r * cellH + textYOffset;
             for (int c = 0; c < CDU_COLS; c++) {
@@ -529,6 +660,7 @@ public class CDUView extends View {
 
         // Draw UI elements (top bar)
         drawLedIndicator(canvas);
+        drawAnnunciators(canvas);
 
         // Flash effect
         if (pressedArea != null) {
@@ -544,7 +676,7 @@ public class CDUView extends View {
         float px = imgOffsetX + ledX * imgScaleW;
         float py = imgOffsetY + ledY * imgScaleH;
 
-        if (ledState) {
+        if (ledState || LED_TEST_ALL_ON) {
             ledBoxPaint.setColor(Color.argb(255, 0, 255, 0));
             ledBoxPaint.setMaskFilter(ledGlowFilter);
             canvas.drawRect(px - ledWidth/2, py - ledHeight/2, px + ledWidth/2, py + ledHeight/2, ledBoxPaint);
@@ -554,6 +686,42 @@ public class CDUView extends View {
         } else {
             ledBoxPaint.setColor(Color.argb(255, 40, 40, 40));
             canvas.drawRect(px - ledWidth/2, py - ledHeight/2, px + ledWidth/2, py + ledHeight/2, ledBoxPaint);
+        }
+    }
+
+    /** Draw the four bezel-strip annunciators (MSG, OFST, CALL, FAIL) as
+     *  stacked vertical text — one character per line going down, characters
+     *  stay upright (NOT canvas.rotate). Inactive annunciators render in
+     *  their dim colour so labels stay visible on the bezel even when off.
+     *  Mirrors the FMC777 / Fenix / FBW pattern verbatim: dedicated
+     *  annLabelPaint with system Monospace Bold, each char drawn
+     *  CENTER-aligned on px so font-metric variance across devices can't
+     *  shift the stack horizontally. */
+    private void drawAnnunciators(Canvas canvas) {
+        // Scales with imgScaleH (drawn skin height) so size stays proportional
+        // across resolutions and letterboxed layouts. Same coefficient as
+        // FMC777 — adjust here if the NG3 bezel labels need to be larger
+        // or smaller after live observation.
+        float charSize = imgScaleH * 0.0144f * 1.152f;
+        annLabelPaint.setTextSize(charSize);
+        annLabelPaint.setFakeBoldText(true);
+
+        Paint.FontMetrics fm = annLabelPaint.getFontMetrics();
+        float lineH = charSize;
+
+        for (int i = 0; i < ANN_NAMES.length; i++) {
+            float px = imgOffsetX + annX[i] * imgScaleW;
+            float py = imgOffsetY + annY[i] * imgScaleH;
+
+            boolean lit = LED_TEST_ALL_ON || annOn[i];
+            annLabelPaint.setColor(lit ? ANN_COLOR_ON[i] : ANN_COLOR_OFF[i]);
+
+            String label = ANN_NAMES[i];
+            float topY = py - ((label.length() - 1) * lineH) / 2f;
+            for (int k = 0; k < label.length(); k++) {
+                float charY = topY + k * lineH - (fm.ascent + fm.descent) / 2f;
+                canvas.drawText(String.valueOf(label.charAt(k)), px, charY, annLabelPaint);
+            }
         }
     }
 

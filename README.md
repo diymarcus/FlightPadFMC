@@ -1,6 +1,6 @@
 ================================================================================
   FlightPadFMC — Native Android FMC / MCDU for PMDG 737, PMDG 777 & FlyByWire A320
-  Version 0.2.15
+  Version 0.3.0
   By SilenceDIY (Marcus)
   https://github.com/diymarcus/FlightPadFMC
 ================================================================================
@@ -55,10 +55,22 @@ HOW IT WORKS
             |
       FBWA320 App (Android)
 
-The server connects to MSFS via SimConnect (PMDG) or proxies SimBridge
-(FlyByWire), reads the CDU / MCDU screen data, and streams it to the Android
-app over your local network. Key presses are sent back to the server and
-forwarded to the aircraft in real time.
+  Fenix A320:
+      MSFS + Fenix A320 v2
+            |
+      Fenix GraphQL Server (built-in, port 8083)
+            |
+      FlightPadFMC Server   <-- proxies Fenix GraphQL
+            |
+          WiFi / LAN  (WebSocket)
+            |
+      FenixA320 App (Android)
+
+The server connects to MSFS via SimConnect (PMDG), proxies SimBridge
+(FlyByWire), or proxies Fenix's built-in GraphQL server (Fenix), reads the
+CDU / MCDU screen data, and streams it to the Android app over your local
+network. Key presses are sent back to the server and forwarded to the
+aircraft in real time.
 
 
 REQUIREMENTS
@@ -72,11 +84,17 @@ REQUIREMENTS
   For PMDG 737 / 777:
     - PMDG 737 NGXu or PMDG 777 add-on
     - PMDG SDK enabled in the aircraft options (Step 1)
-    - MobiFlight WASM Module installed in the Community folder (Step 2)
+    - (As of v0.3.0, the MobiFlight WASM Module is no longer required.)
 
   For FlyByWire A320:
     - FlyByWire A32NX (free, from flightsim.to or FBW installer)
     - FlyByWire SimBridge running on the same PC (Step 3)
+
+  For Fenix A320:
+    - Fenix A320 v2 (paid add-on)
+    - No additional install — FlightPadFMC connects to Fenix's
+      built-in GraphQL server on port 8083 automatically. MobiFlight
+      WASM is NOT required for Fenix.
 
 
 INSTALLATION — STEP BY STEP
@@ -86,7 +104,7 @@ This is an Alpha release. Bug reports and feedback are very welcome — they
 help me track down the last rough edges before a proper 1.0.
 
 
-STEP 1 — Enable the PMDG SDK   (skip if you only use the A320)
+STEP 1 — Enable the PMDG SDK   (skip if you only use the A320 — FBW or Fenix)
 ---------------------------------------------------------------
 The PMDG SDK must be enabled so external tools (like FlightPadFMC) can read
 the CDU data. You need to edit a small .ini file once per aircraft per sim.
@@ -155,59 +173,14 @@ In every case:
   the same parent directory — that's the one to edit.
 
 
-STEP 2 — Install the MobiFlight WASM Module   (skip if you only use the A320)
------------------------------------------------------------------------------
-The MobiFlight WASM Module (a.k.a. "mobiflight-event-module" / "EVENT MODULE")
-runs inside MSFS and exposes aircraft L-variables that FlightPadFMC needs for
-the PMDG 737 EXEC LED. The install procedure is different between MSFS 2020
-and MSFS 2024 — follow the section that matches your sim.
-
-  ---------------------------------------------------------------
-  MSFS 2020 — manual copy into Community folder
-  ---------------------------------------------------------------
-
-  1. Download the module from:
-       https://github.com/MobiFlight/MobiFlight-WASM-Module
-     Or use the "mobiflight-event-module" folder included in the
-     "Community" archive shipped with FlightPadFMC.
-
-  2. Copy the "mobiflight-event-module" folder into your MSFS 2020
-     Community folder:
-       MS Store:
-         %LOCALAPPDATA%\Packages\Microsoft.FlightSimulator_8wekyb3d8bbwe\
-         LocalCache\Packages\Community\
-       Steam:
-         %APPDATA%\Microsoft Flight Simulator\Packages\Community\
-
-  3. Restart MSFS 2020.
-
-  ---------------------------------------------------------------
-  MSFS 2024 — enable through the in-sim Marketplace
-  ---------------------------------------------------------------
-
-  MSFS 2024 does not use a manual Community folder for most add-ons.
-  The MobiFlight WASM module is published as a free Marketplace item
-  ("EVENT MODULE") and only needs to be enabled:
-
-  1. Launch MSFS 2024.
-  2. Open Marketplace -> My Library -> Community.
-  3. Find the entry named "EVENT MODULE" (this is the MobiFlight WASM
-     module — same module as MSFS 2020, just delivered via Marketplace).
-     If you don't see it in "My Library", download it once from the
-     Marketplace first (it is free). It should then appear under
-     "My Library".
-  4. Click Enable on the EVENT MODULE entry.
-  5. Restart MSFS 2024 so the WASM module is loaded.
-
-  ---------------------------------------------------------------
-
-  NOTE: The FlightPadFMC server automatically checks whether the module is
-  installed when a PMDG 737 connects, and will log a red error in the
-  server Activity Log if it is missing or not enabled. If you see that
-  error, return to this step.
-
-  NOTE: If you already use MobiFlight for other purposes, the WASM module
-  is most likely already installed — no extra action needed.
+STEP 2 — (no longer needed)
+---------------------------
+Earlier versions required the MobiFlight WASM Module ("EVENT MODULE") in
+your Community folder to drive the PMDG 737 EXEC LED. As of v0.3.0 this
+is no longer needed — the server reads the 737 EXEC LED directly from the
+PMDG SDK alongside the other annunciators (MSG, CALL, FAIL, OFST). If you
+already have the MobiFlight WASM module installed for other purposes you
+can leave it; FlightPadFMC simply does not use it any more. Skip to STEP 3.
 
 
 STEP 3 — Install FlyByWire SimBridge   (skip if you only use the 737 / 777)
@@ -268,6 +241,43 @@ STEP 4 — Run the FlightPadFMC Server
 
   Activity Log, port setting and About window are available from the menu.
   Closing the window minimises the server to the system tray.
+
+  Optional — Auto-launch the server with MSFS
+  -------------------------------------------
+  MSFS can launch FlightPadFMCServer.exe automatically when the sim starts,
+  via its built-in "exe.xml" add-on launcher mechanism. Pair this with the
+  new "Close server when MSFS exits" Setting (File -> Settings, in the
+  Server section, ~10 s debounce) so the server also auto-quits when you
+  close MSFS — no manual server start/stop needed.
+
+  Edit (or create) the exe.xml file in your MSFS user folder. Typical
+  locations:
+
+    MSFS 2020 (MS Store):
+      %LOCALAPPDATA%\Packages\Microsoft.FlightSimulator_8wekyb3d8bbwe\LocalCache\exe.xml
+    MSFS 2020 (Steam):
+      %APPDATA%\Microsoft Flight Simulator\exe.xml
+    MSFS 2024 (MS Store):
+      %LOCALAPPDATA%\Packages\Microsoft.Limitless_8wekyb3d8bbwe\LocalCache\exe.xml
+    MSFS 2024 (Steam):
+      %APPDATA%\Microsoft Flight Simulator 2024\exe.xml
+
+  (MSFS 2024 paths follow the same convention as MSFS 2020 — verify on
+  your install if exe.xml doesn't appear at that location.)
+
+  Add the following block INSIDE the existing <SimBase.Document> root
+  (do NOT overwrite the file — exe.xml is shared with other add-ons,
+  one <Launch.Addon> per add-on):
+
+      <Launch.Addon>
+          <Name>FlightPadServer</Name>
+          <Disabled>false</Disabled>
+          <Path>FULL\PATH\TO\FlightPadFMCServer.exe</Path>
+      </Launch.Addon>
+
+  Replace <Path> with the absolute path to where you extracted the server
+  (e.g. C:\FlightPadFMC\FlightPadFMCServer.exe). MSFS does not expand
+  environment variables in this field — use a real, full path.
 
 
 STEP 5 — Install the Android App(s)
@@ -340,9 +350,13 @@ USAGE TIPS
 TROUBLESHOOTING
 ---------------
   EXEC LED not working (PMDG 737):
-    - Make sure the MobiFlight WASM Module is in the Community folder.
-    - Restart MSFS after installing the WASM module.
-    - Check the server Activity Log for "MF LVar switch_6042_73X" messages.
+    - Make sure the PMDG SDK is enabled in 737NG3_Options.ini (Step 1).
+    - In the server Activity Log, watch for "EXEC LED: ON/OFF (737 Captain
+      via SDK)" messages when you press EXEC in the sim. If those appear,
+      the server is reading the LED correctly — check the Android side.
+    - As of v0.3.0 the MobiFlight WASM module is no longer used for any
+      LED — if you still have it installed for other purposes that's
+      fine, FlightPadFMC simply doesn't read from it anymore.
 
   CDU / MCDU screen not showing:
     - PMDG: verify PMDG SDK is enabled (Step 1) and MSFS was restarted.
@@ -408,25 +422,13 @@ FlightPadFMC adds support for aircraft that do expose the missing data.
     or rendering issue on a specific page, please report it — the fix is
     usually one line once the broken data is captured from the server log.
 
-  FMC777 / FMC737 — only EXEC LED is currently implemented
-    The real PMDG 737 NGXu and 777 CDUs have several annunciator lights next
-    to the display (EXEC, MSG, CALL, FAIL, OFST, DSPY on the 737 / EXEC,
-    CALL, FAIL, MSG, OFST on the 777). FlightPadFMC v0.2.1 currently only
-    drives the EXEC LED on both aircraft — all other annunciators are drawn
-    on the skin but remain off. The underlying data is available via the
-    PMDG SDK and MobiFlight L:Variables, so this is a FlightPadFMC-side
-    limitation, not a data source limitation. Additional annunciators will
-    be added in a future release. Most common operational use of the PMDG
-    CDU does not depend on the missing annunciators — MSG in particular is
-    the one most users will notice is not lighting during normal flight.
+  (Earlier versions had a limitation here on PMDG annunciators —
+  resolved as of v0.3.0; the 777 and 737 CDUs now drive all bezel
+  annunciators end-to-end via the PMDG SDK.)
 
 
 OPEN SOURCE CREDITS
 -------------------
-  MobiFlight WASM Module
-  Copyright (c) 2021 Sebastian Moebius, MobiFlight
-  MIT License — https://github.com/MobiFlight/MobiFlight-WASM-Module
-
   FlyByWire SimBridge
   Copyright (c) FlyByWire Simulations
   GPL-3.0 — https://github.com/flybywiresim/simbridge
@@ -438,6 +440,47 @@ OPEN SOURCE CREDITS
 ================================================================================
   CHANGELOG
 ================================================================================
+
+Version 0.3.0 — May 2026
+------------------------
+  NEW:
+  + PMDG 737 NG3 bezel annunciators end-to-end — MSG, OFST, CALL, FAIL
+      drawn on the keypad bezel (MSG/OFST right strip, CALL/FAIL left
+      strip), driven directly from the PMDG SDK alongside EXEC. Same
+      pipeline as the 777 annunciators. Captain CDU only.
+  + Server auto-close when MSFS exits — opt-in setting, ~10 s debounce
+      File -> Settings -> "Close server when MSFS exits". When MSFS
+      closes, the server cleanly quits ~10 seconds later. If MSFS
+      reconnects within the window, the server stays alive. Default OFF
+      so existing behaviour is preserved.
+  + Optional auto-launch with MSFS via exe.xml — see STEP 4 in this
+      README. Pair with the new auto-close setting and the server's
+      lifecycle follows MSFS without any manual start/stop.
+  + 737 EXEC LED now reads via the PMDG NG3 SDK
+      MobiFlight WASM module is no longer required for the 737 EXEC
+      LED — the server reads it directly from PMDG_NG3_Data along
+      with MSG, CALL, FAIL, OFST. The MobiFlight install step from
+      earlier versions is no longer needed for any aircraft.
+  + Fresh-client annunciator state replay on identify
+      Any annunciator already lit when an Android client connects
+      (notably PMDG NG3 cold-and-dark MSG) now appears immediately.
+      Earlier versions only sent state on transitions, so an
+      already-on annunciator would stay invisibly off on the client
+      until something happened to toggle it.
+
+  IMPROVEMENTS:
+  + Activity log noticeably quieter — three per-tick CDU-area dispatch
+      DEBUG lines removed. State changes still log at INFO.
+  + Calibration changes (CalibrateActivity737 / 777 / Fenix / FBW)
+      take effect immediately on return to the CDU, no restart needed.
+
+  CHANGES:
+  + Server version bumped to 0.3.0; all 5 APKs bumped to versionCode 2
+    / versionName "0.3.0".
+
+  REMOVED:
+  - MobiFlight WASM Module dependency (and the bundled
+    Community/mobiflight-event-module/ folder — no longer ships).
 
 Version 0.2.15 — April 2026
 ---------------------------
@@ -539,18 +582,9 @@ Version 0.1.0 — March 2026
   ROADMAP — What's next
 ================================================================================
 
-The next two aircraft targeted for FlightPadFMC support are both fully
-researched, SDK paths are already scoped out, and they will be added as
-new Android apps in upcoming releases:
-
-  Fenix A320
-  ----------
-  - MCDU screen via the Fenix GraphQL interface
-  - Subscribes to aircraft.mcdu1.display / aircraft.mcdu2.display
-  - Full color + size tag support (white, green, cyan, magenta, amber,
-    red, small / large) and all Airbus special glyphs
-  - Key input via MobiFlight WASM L-variables (S_CDU1_KEY_*)
-  - LEDs: FAIL, IND, FM, FM1, FM2, MENU, RDY (all exposed)
+The next aircraft targeted for FlightPadFMC support is fully researched,
+SDK paths are already scoped out, and it will be added as a new Android app
+in an upcoming release:
 
   iFly 737 MAX
   ------------

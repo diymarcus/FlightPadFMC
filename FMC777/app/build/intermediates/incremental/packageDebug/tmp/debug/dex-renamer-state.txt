@@ -1,4 +1,0 @@
-#Fri Apr 03 20:20:07 BST 2026
-base.0=E\:\\NextCloud\\FlightPadFMC\\FMC777\\app\\build\\intermediates\\dex\\debug\\mergeDexDebug\\classes.dex
-path.0=classes.dex
-renamed.0=classes.dex

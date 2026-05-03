@@ -4,7 +4,7 @@ KeyStore/
 *.keystore
 keystore.properties
 
-# ── Android build artifacts — all 4 app modules ──────────────────────────
+# ── Android build artifacts — all 5 app modules ──────────────────────────
 FMC777/build/
 FMC777/app/build/
 FMC737/build/
@@ -13,12 +13,15 @@ FBWA320/build/
 FBWA320/app/build/
 FMC777_OWN/build/
 FMC777_OWN/app/build/
+FenixA320/build/
+FenixA320/app/build/
 
 # ── Signed APK output — distributed via GitHub release assets only ───────
 FMC777/app/release/
 FMC737/app/release/
 FBWA320/app/release/
 FMC777_OWN/app/release/
+FenixA320/app/release/
 
 # ── FBWA320 working folder (skins, calibration notes, personal materials) ─
 FBWA320/CDUPIC/
@@ -26,18 +29,48 @@ FBWA320/CDUPIC/
 # ── Personal cockpit variant — private, do not publish ───────────────────
 FMC777_OWN/
 
+# ── iFly 737 MAX scaffold — server handler not yet wired, hold from public
+iFly737MAX/
+
+# ── FenixA320 private dev notes (never publish)
+FenixA320/Keys.txt
+FenixA320/PLAN.md
+
 # ── Android / Gradle / IDE local state ───────────────────────────────────
 *.iml
 .gradle/
 .idea/
 local.properties
+.claude/
 
 # ── Server source — distributed as .exe only, source stays private ──────
 server_gui.py
 server_gui_backup.py
 server_gui_old.py
 server_gui_test.py
+server_gui_backup_*.py
+fenix_handler.py
+compute_ng3_offsets.py
 FlightPadFMCServer.spec
+
+# ── Server GUI image assets — packaged into the .exe, not for repo ──────
+Donate.jpeg
+ico4.ico
+Logo.jpg
+LogoMA.jpg
+LogoMA_Sil.jpg
+LogoMA_White.jpg
+Server.jpg
+ServerS.jpg
+Youtube_logo.jpg
+Youtube_logo.webp
+
+# ── Internal planning / release-prep docs (never publish) ───────────────
+AIRCRAFT_DETECTION_PLAN.md
+community_post_*.md
+
+# ── Private cert material ───────────────────────────────────────────────
+Cert/
 
 # ── Python build output ─────────────────────────────────────────────────
 __pycache__/
