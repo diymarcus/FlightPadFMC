@@ -16,12 +16,8 @@ FMC777_OWN/app/build/
 FenixA320/build/
 FenixA320/app/build/
 
-# ── Signed APK output — distributed via GitHub release assets only ───────
-FMC777/app/release/
-FMC737/app/release/
-FBWA320/app/release/
-FMC777_OWN/app/release/
-FenixA320/app/release/
+# ── Signed APK output — published with each release tag
+#    (FMC777_OWN stays excluded via the FMC777_OWN/ blanket rule below)
 
 # ── FBWA320 working folder (skins, calibration notes, personal materials) ─
 FBWA320/CDUPIC/

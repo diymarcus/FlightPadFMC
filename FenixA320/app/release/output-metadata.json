@@ -1,0 +1,21 @@
+{
+  "version": 3,
+  "artifactType": {
+    "type": "APK",
+    "kind": "Directory"
+  },
+  "applicationId": "com.virtualfmc.fenixa320",
+  "variantName": "release",
+  "elements": [
+    {
+      "type": "SINGLE",
+      "filters": [],
+      "attributes": [],
+      "versionCode": 2,
+      "versionName": "0.3.0",
+      "outputFile": "FenixA320.apk"
+    }
+  ],
+  "elementType": "File",
+  "minSdkVersionForDexing": 19
+}
