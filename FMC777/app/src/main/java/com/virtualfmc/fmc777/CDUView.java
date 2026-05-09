@@ -1,12 +1,16 @@
 package com.virtualfmc.fmc777;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ValueAnimator;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.*;
 import android.util.AttributeSet;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,51 +20,68 @@ public class CDUView extends View {
     private static final String TAG = "CDUView";
     private static final int CDU_ROWS = 14;
     private static final int CDU_COLS = 24;
-    
+
     private static final boolean DEBUG_MODE = false;
 
     private SoundPlayer soundPlayer;
     private boolean soundEnabled = true;
+    private boolean hapticEnabled = true;
 
     private TouchArea pressedArea = null;
     private final Paint highlightPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
+    // Cockpit-feel press animation — same recipe as iFly737MAX 2026-05-06.
+    // Subtle dark overlay fades in then decelerates out; alpha 128 = ~50% black.
+    private static final int  HIGHLIGHT_MAX_ALPHA = 128;
+    private static final long PRESS_FADE_IN_MS    = 100;
+    private static final long PRESS_FADE_OUT_MS   = 240;
+    private int currentHighlightAlpha = 0;
+    private AnimatorSet pressAnimator = null;
+
     private long lastTouchTime = 0;
-    private static final long TOUCH_DEBOUNCE_MS = 150;
+    // 50 ms allows ~20 presses/sec — enough for any human typing on a CDU.
+    private static final long TOUCH_DEBOUNCE_MS = 50;
 
-    private boolean hapticEnabled = true;
+    // ─── 7 hardcoded keepers — extracted from CDU_Images/777_OWN/Calib/press_shapes_777.png
+    // via tools/extract_calib_markers.py FMC777_OWN. These are positions that
+    // can NOT be auto-detected from the bezel skin (top-bar UI, EXEC LED slot,
+    // 4 annunciator label strips). Format: { x0, y0, x1, y1 } normalised 0..1.
+    private static final float[] SETTINGS_BTN_RECT       = { 0.0613f, 0.0027f, 0.1250f, 0.0446f };
+    private static final float[] CLOSE_BTN_RECT          = { 0.8786f, 0.0027f, 0.9423f, 0.0446f };
+    private static final float[] EXEC_LED_RECT           = { 0.7782f, 0.5377f, 0.8714f, 0.5569f };
+    private static final float[] ANNUN_LEFT_TOP_RECT     = { 0.0343f, 0.6762f, 0.0745f, 0.7442f };  // DSPY
+    private static final float[] ANNUN_LEFT_BOTTOM_RECT  = { 0.0349f, 0.7473f, 0.0745f, 0.8215f };  // FAIL
+    private static final float[] ANNUN_RIGHT_TOP_RECT    = { 0.9237f, 0.6758f, 0.9639f, 0.7350f };  // MSG
+    private static final float[] ANNUN_RIGHT_BOTTOM_RECT = { 0.9237f, 0.7362f, 0.9639f, 0.8215f };  // OFST
 
-    private final char[][] symbols = new char[CDU_ROWS][CDU_COLS];
-    private final int[][] colors = new int[CDU_ROWS][CDU_COLS];
-
-    private float settingsX = 0.09561454f, settingsY = 0.02447295f;
-    private float closeX = 0.91020817f, closeY = 0.02447295f;
-    // EXEC LED + bezel annunciator defaults: Marcus's 2026-05-02 cockpit-tablet
-    // LED-only calibration values, with the post-cal FAIL +0.008 / OFST +0.004
-    // fine-tune nudges baked in. Same pattern as Fenix/FBW — uncalibrated
-    // installs land on the right bezel positions out of the box.
-    private float ledX = 0.8260466f, ledY = 0.5469501f;
+    // CDU character-grid screen rect (fixed by skin geometry).
+    private static final float SCREEN_L = 0.14666007f;
+    private static final float SCREEN_T = 0.07033213f;
+    private static final float SCREEN_R = 0.84544694f;
+    private static final float SCREEN_B = 0.43650627f;
 
     // ─── Bezel-strip annunciators (real PMDG 777 layout) ──────────────────────
     // Two recessed strips on the keypad bezel — left strip holds DSPY (top,
-    // white) and FAIL (bottom, red); right strip holds MSG (top, amber) and
-    // OFST (bottom, amber). Each label is rendered as stacked vertical text
-    // (one char per line), bold, no rectangle. Inactive labels stay visible
-    // but dimmed — same pattern the FenixA320 vertical-text annunciators use.
-    //
-    // Indices:  0 = MSG, 1 = OFST, 2 = DSPY, 3 = FAIL
+    // white) and FAIL (bottom, red); right strip holds MSG (top, white) and
+    // OFST (bottom, amber). Each label is rendered as stacked vertical text.
+    // Indices preserved for MainActivity's setAnnunciatorState() contract.
     static final int ANN_MSG  = 0;
     static final int ANN_OFST = 1;
     static final int ANN_DSPY = 2;
     static final int ANN_FAIL = 3;
 
     private static final String[] ANN_NAMES = {"MSG", "OFST", "DSPY", "FAIL"};
-    private static final String[] ANN_PREF_KEYS = {"FMC_MSG", "FMC_OFST", "FMC_DSPY", "FMC_FAIL"};
+    private static final float[][] ANN_RECTS = {
+        ANNUN_RIGHT_TOP_RECT,    // MSG  — right top
+        ANNUN_RIGHT_BOTTOM_RECT, // OFST — right bottom
+        ANNUN_LEFT_TOP_RECT,     // DSPY — left top
+        ANNUN_LEFT_BOTTOM_RECT,  // FAIL — left bottom
+    };
     private static final int[] ANN_COLOR_ON = {
         Color.rgb(255, 255, 255),  // MSG  — white  (PMDG 777 in-sim render)
-        Color.rgb(255, 160,  0),   // OFST — amber
+        Color.rgb(255, 160,   0),  // OFST — amber
         Color.rgb(255, 255, 255),  // DSPY — white
-        Color.rgb(255,   0,  0),   // FAIL — red
+        Color.rgb(255,   0,   0),  // FAIL — red
     };
     private static final int[] ANN_COLOR_OFF = {
         Color.rgb( 80,  80, 80),   // dim white
@@ -68,20 +89,120 @@ public class CDUView extends View {
         Color.rgb( 80,  80, 80),   // dim white
         Color.rgb( 80,   0,  0),   // dim red
     };
-    // Defaults baked from Marcus's 2026-05-02 cockpit-tablet calibration
-    // (FAIL_y / OFST_y include the post-cal +0.008 / +0.004 fine-tune nudges).
-    // Indices: 0=MSG, 1=OFST, 2=DSPY, 3=FAIL.
-    private final float[] annX = {0.9451092f,  0.9451092f,  0.0537171f, 0.05705496f};
-    private final float[] annY = {0.7107956f,  0.7760186f,  0.712924f,  0.782147f};
-    // All annunciators start OFF (dimmed); server pushes real state via
-    // led_update messages (name = MSG | OFST | DSPY | FAIL).
+    // DEBUG: force all 4 bezel annunciators ON for visual verification of
+    // positioning + colours after skin / rect-constant changes. Mirrors the
+    // iFly / FBWA320 LED_TEST_ALL_ON pattern.
+    private static final boolean LED_TEST_ALL_ON = false;
+
     private final boolean[] annOn = {false, false, false, false};
+    private boolean ledExec = false;
 
-    // Screen rect calibration (TL + BR corners)
-    private float screenL = 0.14666007f, screenT = 0.07033213f;
-    private float screenR = 0.84544694f, screenB = 0.43650627f;
+    // ─── Shape + Hint plumbing for auto-detected bezel buttons ────────────────
+    enum Shape { CIRCLE, ROUNDED_RECT }
 
-    private boolean ledState = false;
+    private static final class Hint {
+        final String label;
+        final float cx, cy, hw, hh;
+        final Shape shape;
+        Hint(String label, float cx, float cy, float hw, float hh, Shape shape) {
+            this.label = label; this.cx = cx; this.cy = cy;
+            this.hw = hw; this.hh = hh; this.shape = shape;
+        }
+    }
+
+    private static final Shape RR = Shape.ROUNDED_RECT;
+    private static final Shape CR = Shape.CIRCLE;
+
+    // 69 bezel-button hints — extracted verbatim from the existing FMC777_OWN
+    // touchAreas (centre + half-extents), each tagged with its press-overlay
+    // shape. These are search-region hints for the pixel detector, NOT
+    // user-tunable calibration data. Same layout as PMDG 777 NG3 except for
+    // the OWN-only differences (bottom-pinned skin handled in onSizeChanged).
+    private static final Hint[] BUTTON_HINTS = {
+        // LSK Left
+        new Hint("LSK1L", 0.060290247f, 0.13249597f, 0.04f, 0.025f, RR),
+        new Hint("LSK2L", 0.05340007f,  0.18277177f, 0.04f, 0.025f, RR),
+        new Hint("LSK3L", 0.057346556f, 0.23488782f, 0.04f, 0.025f, RR),
+        new Hint("LSK4L", 0.05340007f,  0.28891772f, 0.04f, 0.025f, RR),
+        new Hint("LSK5L", 0.057346556f, 0.34103380f, 0.04f, 0.025f, RR),
+        new Hint("LSK6L", 0.057346556f, 0.39318663f, 0.04f, 0.025f, RR),
+        // LSK Right
+        new Hint("LSK1R", 0.94161830f,  0.12874186f, 0.04f, 0.025f, RR),
+        new Hint("LSK2R", 0.93964505f,  0.18402314f, 0.04f, 0.025f, RR),
+        new Hint("LSK3R", 0.94161830f,  0.23613920f, 0.04f, 0.025f, RR),
+        new Hint("LSK4R", 0.93964505f,  0.28891772f, 0.04f, 0.025f, RR),
+        new Hint("LSK5R", 0.94161830f,  0.34103380f, 0.04f, 0.025f, RR),
+        new Hint("LSK6R", 0.93867460f,  0.39318663f, 0.04f, 0.025f, RR),
+        // Function row 1: INIT, RTE, DEP ARR, ALTN, CRZ
+        new Hint("INIT",     0.1594f, 0.5257f, 0.04f, 0.025f, RR),
+        new Hint("RTE",      0.2860f, 0.5238f, 0.04f, 0.025f, RR),
+        new Hint("DEP ARR",  0.4057f, 0.5257f, 0.04f, 0.025f, RR),
+        new Hint("ALTN",     0.5343f, 0.5251f, 0.04f, 0.025f, RR),
+        new Hint("CRZ",      0.6590f, 0.5238f, 0.04f, 0.025f, RR),
+        // Function row 2: FIX, LEGS, HOLD, FMC, PROG, EXEC
+        new Hint("FIX",      0.1614f, 0.5829f, 0.04f, 0.025f, RR),
+        new Hint("LEGS",     0.2860f, 0.5829f, 0.04f, 0.025f, RR),
+        new Hint("HOLD",     0.4087f, 0.5816f, 0.04f, 0.025f, RR),
+        new Hint("FMC",      0.5314f, 0.5866f, 0.04f, 0.025f, RR),
+        new Hint("PROG",     0.6570f, 0.5835f, 0.04f, 0.025f, RR),
+        new Hint("EXEC",     0.8229f, 0.5835f, 0.04f, 0.025f, RR),
+        // Cluster row 1: MENU, NAV
+        new Hint("MENU",     0.1594f, 0.6425f, 0.04f, 0.025f, RR),
+        new Hint("NAV",      0.2831f, 0.6432f, 0.04f, 0.025f, RR),
+        // Letters A-E (cluster row 1 right side)
+        new Hint("A", 0.4352f, 0.6620f, 0.04f, 0.025f, RR),
+        new Hint("B", 0.5382f, 0.6633f, 0.04f, 0.025f, RR),
+        new Hint("C", 0.6413f, 0.6614f, 0.04f, 0.025f, RR),
+        new Hint("D", 0.7414f, 0.6583f, 0.04f, 0.025f, RR),
+        new Hint("E", 0.8484f, 0.6614f, 0.04f, 0.025f, RR),
+        // Cluster row 2: PREV PAGE, NEXT PAGE + Letters F-J
+        new Hint("PREV PAGE", 0.1614f, 0.7060f, 0.04f, 0.025f, RR),
+        new Hint("NEXT PAGE", 0.2831f, 0.7066f, 0.04f, 0.025f, RR),
+        new Hint("F", 0.4352f, 0.7198f, 0.04f, 0.025f, RR),
+        new Hint("G", 0.5382f, 0.7198f, 0.04f, 0.025f, RR),
+        new Hint("H", 0.6423f, 0.7198f, 0.04f, 0.025f, RR),
+        new Hint("I", 0.7414f, 0.7210f, 0.04f, 0.025f, RR),
+        new Hint("J", 0.8454f, 0.7179f, 0.04f, 0.025f, RR),
+        // Numbers 1-3 + K-O
+        new Hint("1", 0.1319f, 0.7807f, 0.04f, 0.025f, CR),
+        new Hint("2", 0.2281f, 0.7807f, 0.04f, 0.025f, CR),
+        new Hint("3", 0.3312f, 0.7770f, 0.04f, 0.025f, CR),
+        new Hint("K", 0.4352f, 0.7807f, 0.04f, 0.025f, RR),
+        new Hint("L", 0.5373f, 0.7770f, 0.04f, 0.025f, RR),
+        new Hint("M", 0.6423f, 0.7776f, 0.04f, 0.025f, RR),
+        new Hint("N", 0.7463f, 0.7807f, 0.04f, 0.025f, RR),
+        new Hint("O", 0.8454f, 0.7770f, 0.04f, 0.025f, RR),
+        // Numbers 4-6 + P-T
+        new Hint("4", 0.1300f, 0.8385f, 0.04f, 0.025f, CR),
+        new Hint("5", 0.2311f, 0.8367f, 0.04f, 0.025f, CR),
+        new Hint("6", 0.3223f, 0.8373f, 0.04f, 0.025f, CR),
+        new Hint("P", 0.4352f, 0.8367f, 0.04f, 0.025f, RR),
+        new Hint("Q", 0.5382f, 0.8385f, 0.04f, 0.025f, RR),
+        new Hint("R", 0.6384f, 0.8367f, 0.04f, 0.025f, RR),
+        new Hint("S", 0.7404f, 0.8385f, 0.04f, 0.025f, RR),
+        new Hint("T", 0.8484f, 0.8367f, 0.04f, 0.025f, RR),
+        // Numbers 7-9 + U-Y
+        new Hint("7", 0.1261f, 0.8963f, 0.04f, 0.025f, CR),
+        new Hint("8", 0.2291f, 0.8951f, 0.04f, 0.025f, CR),
+        new Hint("9", 0.3272f, 0.8951f, 0.04f, 0.025f, CR),
+        new Hint("U", 0.4382f, 0.8951f, 0.04f, 0.025f, RR),
+        new Hint("V", 0.5373f, 0.8944f, 0.04f, 0.025f, RR),
+        new Hint("W", 0.6384f, 0.8951f, 0.04f, 0.025f, RR),
+        new Hint("X", 0.7414f, 0.8951f, 0.04f, 0.025f, RR),
+        new Hint("Y", 0.8454f, 0.8963f, 0.04f, 0.025f, RR),
+        // Bottom row: ., 0, +/-, Z, SP, DEL, /, CLR
+        new Hint(".",   0.1270f, 0.9522f, 0.04f, 0.025f, CR),
+        new Hint("0",   0.2281f, 0.9528f, 0.04f, 0.025f, CR),
+        new Hint("+/-", 0.3272f, 0.9560f, 0.04f, 0.025f, CR),
+        new Hint("Z",   0.4352f, 0.9528f, 0.04f, 0.025f, RR),
+        new Hint("SP",  0.5382f, 0.9522f, 0.04f, 0.025f, RR),
+        new Hint("DEL", 0.6413f, 0.9528f, 0.04f, 0.025f, RR),
+        new Hint("/",   0.7444f, 0.9560f, 0.04f, 0.025f, RR),
+        new Hint("CLR", 0.8425f, 0.9522f, 0.04f, 0.025f, RR),
+    };
+
+    private final char[][] symbols = new char[CDU_ROWS][CDU_COLS];
+    private final int[][] colors = new int[CDU_ROWS][CDU_COLS];
 
     private Bitmap skin;
 
@@ -90,27 +211,27 @@ public class CDUView extends View {
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint ledBoxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    // Dedicated paint for the bezel annunciators — uses system Monospace Bold
-    // (NOT B612 from assets) so font metrics are identical on every device,
-    // matching Fenix/FBW's bulletproof pattern. Sharing textPaint caused
-    // alignment drift on devices where B612 failed to load and silently fell
-    // back to system Monospace with different cell widths + ascent/descent.
+    // Dedicated annunciator paint — system Monospace Bold (NOT the asset B612
+    // font); CENTER-aligned per-char so font-metric variance across devices
+    // can't shift the stack. Mirrors Fenix/FBW/iFly bulletproof pattern.
     private final Paint annLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     // Connection status overlay — shown on the CDU screen area when not connected.
-    // Big amber centered text replaces the char grid until cleared (setConnectionStatus(null)).
     private String connectionStatus = null;
     private final Paint statusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final RectF skinRectF = new RectF();
     private final RectF screenRect = new RectF();
     private final RectF actualScreen = new RectF();
+    // Reusable RectF for press overlay — using the RectF overload of
+    // drawRoundRect (API 1) instead of the 6-float overload (API 21+ only,
+    // crashes on Android 4.4 / dalvikvm with NoSuchMethodError).
+    private final RectF pressOverlayRect = new RectF();
+    private final RectF ledRectF = new RectF();
 
     private BlurMaskFilter ledGlowFilter;
     private final Paint.FontMetrics fmcFontMetrics = new Paint.FontMetrics();
 
-    private float ledWidth;
-    private float ledHeight;
     private float cellW;
     private float cellH;
     private float textYOffset;
@@ -129,33 +250,38 @@ public class CDUView extends View {
     private static class TouchArea {
         final RectF rect;
         final String key;
-        TouchArea(float l, float t, float r, float b, String k) {
+        final Shape shape;
+        TouchArea(float l, float t, float r, float b, String k, Shape s) {
             rect = new RectF(l, t, r, b);
             key  = k;
+            shape = s;
+        }
+        TouchArea(RectF r, String k, Shape s) {
+            rect = new RectF(r);
+            key  = k;
+            shape = s;
         }
     }
 
     public CDUView(Context context) {
         super(context);
         init(context);
-        loadCalibrationData(context);
         setupLayout();
     }
 
     public CDUView(Context context, AttributeSet attrs) {
         super(context, attrs);
         init(context);
-        loadCalibrationData(context);
         setupLayout();
     }
 
     private void init(Context context) {
-        logD("init() started - PMDG 777 version");
+        logD("init() started - PMDG 777 (public) version");
         touchAreas = new ArrayList<>();
 
         int maxBitmapSize = getMaxBitmapSize();
         logD("GPU max bitmap size: " + maxBitmapSize + "px");
-        
+
         int safeSize = Math.min(1024, maxBitmapSize / 2);
         logD("Using safe downsampling size: " + safeSize + "px");
 
@@ -166,7 +292,8 @@ public class CDUView extends View {
         try {
             skin = decodeSampledBitmap(context, R.drawable.cdu_skin777, safeSize);
             if (skin != null) {
-                logD("777 skin loaded: " + (skin.getByteCount() / 1024) + "KB (" + skin.getWidth() + "x" + skin.getHeight() + ")");
+                logD("777 skin loaded: " + (skin.getByteCount() / 1024) + "KB ("
+                        + skin.getWidth() + "x" + skin.getHeight() + ")");
                 if (skin.getWidth() > maxBitmapSize || skin.getHeight() > maxBitmapSize) {
                     android.util.Log.w(TAG, "⚠ Bitmap exceeds GPU limit - using software rendering");
                     setLayerType(View.LAYER_TYPE_SOFTWARE, null);
@@ -192,15 +319,14 @@ public class CDUView extends View {
             textPaint.setTypeface(b612Font);
             android.util.Log.d(TAG, "✅ B612 Mono Bold font loaded successfully");
         } catch (Exception e) {
-            // Fallback to system Monospace Bold if font not found
             textPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
             android.util.Log.w(TAG, "⚠ B612 Mono Bold not found in assets, using Monospace fallback", e);
         }
-        
+
         textPaint.setColor(Color.WHITE);
         textPaint.setTextAlign(Paint.Align.CENTER);
 
-        highlightPaint.setColor(Color.argb(128, 255, 255, 255));
+        highlightPaint.setColor(Color.BLACK);  // alpha modulated per-frame by pressAnimator
         highlightPaint.setStyle(Paint.Style.FILL);
 
         boxPaint.setColor(Color.argb(200, 40, 40, 40));
@@ -209,15 +335,10 @@ public class CDUView extends View {
         ledBoxPaint.setStyle(Paint.Style.FILL);
         ledGlowFilter = new BlurMaskFilter(5, BlurMaskFilter.Blur.NORMAL);
 
-        // Connection status overlay paint — big amber text on the CDU screen
         statusPaint.setColor(Color.rgb(255, 160, 0));  // amber
         statusPaint.setTextAlign(Paint.Align.CENTER);
         statusPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
 
-        // Annunciator label paint — system Monospace Bold, CENTER-aligned per
-        // char (matches Fenix/FBW). Each char is drawn independently centred
-        // on px so the stack stays put across devices regardless of which
-        // font ends up loaded.
         annLabelPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
         annLabelPaint.setTextAlign(Paint.Align.CENTER);
 
@@ -230,7 +351,7 @@ public class CDUView extends View {
                         return true;
                     }
                     lastTouchTime = currentTime;
-                    
+
                     float fx = (event.getX() - imgOffsetX) / imgScaleW;
                     float fy = (event.getY() - imgOffsetY) / imgScaleH;
 
@@ -265,13 +386,7 @@ public class CDUView extends View {
                             }
                         }
 
-                        postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                pressedArea = null;
-                                postInvalidate();
-                            }
-                        }, 100);
+                        startPressAnimation();
                     }
                     return true;
                 }
@@ -283,71 +398,6 @@ public class CDUView extends View {
     @Override
     public boolean performClick() {
         return super.performClick();
-    }
-
-    private void loadCalibrationData(Context context) {
-        // Always start from safe defaults, then let any saved prefs override
-        // them per-key. This way an LEDs-only save (which leaves
-        // calibration_complete untouched) still applies, and a fresh install
-        // simply keeps the defaults.
-        resetToSafeDefaults();
-        try {
-            SharedPreferences prefs = context.getSharedPreferences("CalibrationData777", Context.MODE_PRIVATE);
-
-            // One-shot fine-tunes: bump FAIL down ~10px and OFST down ~5px
-            // (in skin-normalised space, 0.008 / 0.004) where the manual
-            // calibration taps kept landing a touch high. Each is guarded by
-            // its own flag so they can't compound on later launches or after
-            // a fresh calibration. Safe to delete these blocks once the
-            // positions are fully dialled in.
-            if (!prefs.getBoolean("_fail_nudge_v1", false)) {
-                float fy = prefs.getFloat("FMC_FAIL_y", -1f);
-                if (fy > 0f && fy < 1f) {
-                    prefs.edit()
-                        .putFloat("FMC_FAIL_y", Math.min(1f, fy + 0.008f))
-                        .putBoolean("_fail_nudge_v1", true)
-                        .apply();
-                }
-            }
-            if (!prefs.getBoolean("_ofst_nudge_v1", false)) {
-                float oy = prefs.getFloat("FMC_OFST_y", -1f);
-                if (oy > 0f && oy < 1f) {
-                    prefs.edit()
-                        .putFloat("FMC_OFST_y", Math.min(1f, oy + 0.004f))
-                        .putBoolean("_ofst_nudge_v1", true)
-                        .apply();
-                }
-            }
-
-            float sX = prefs.getFloat("SETTINGS_BTN_x", -1f);
-            float sY = prefs.getFloat("SETTINGS_BTN_y", -1f);
-            if (isValidCalibration(sX, sY)) { settingsX = sX; settingsY = sY; }
-
-            float cX = prefs.getFloat("CLOSE_BTN_x", -1f);
-            float cY = prefs.getFloat("CLOSE_BTN_y", -1f);
-            if (isValidCalibration(cX, cY)) { closeX = cX; closeY = cY; }
-
-            float lX = prefs.getFloat("FMC_LED_x", -1f);
-            float lY = prefs.getFloat("FMC_LED_y", -1f);
-            if (isValidCalibration(lX, lY)) { ledX = lX; ledY = lY; }
-
-            for (int i = 0; i < ANN_PREF_KEYS.length; i++) {
-                float ax = prefs.getFloat(ANN_PREF_KEYS[i] + "_x", -1f);
-                float ay = prefs.getFloat(ANN_PREF_KEYS[i] + "_y", -1f);
-                if (isValidCalibration(ax, ay)) { annX[i] = ax; annY[i] = ay; }
-            }
-
-            float sTL_x = prefs.getFloat("SCREEN_TL_x", -1f);
-            float sTL_y = prefs.getFloat("SCREEN_TL_y", -1f);
-            float sBR_x = prefs.getFloat("SCREEN_BR_x", -1f);
-            float sBR_y = prefs.getFloat("SCREEN_BR_y", -1f);
-            if (isValidCalibration(sTL_x, sTL_y, sBR_x, sBR_y)) {
-                screenL = sTL_x; screenT = sTL_y;
-                screenR = sBR_x; screenB = sBR_y;
-            }
-        } catch (Exception e) {
-            // defaults already in place
-        }
     }
 
     private int getMaxBitmapSize() {
@@ -365,28 +415,6 @@ public class CDUView extends View {
         if (DEBUG_MODE) {
             android.util.Log.d(TAG, message);
         }
-    }
-
-    private boolean isValidCalibration(float... values) {
-        for (float v : values) {
-            if (v < 0f || v > 1f) return false;
-        }
-        return true;
-    }
-
-    private void resetToSafeDefaults() {
-        settingsX = 0.09561454f; settingsY = 0.02447295f;
-        closeX = 0.91020817f; closeY = 0.02447295f;
-        // LED + annunciator defaults from Marcus's 2026-05-02 cockpit-tablet
-        // calibration (FAIL_y / OFST_y include the post-cal +0.008 / +0.004
-        // fine-tune nudges). Same pattern as Fenix/FBW measured defaults.
-        ledX = 0.8260466f; ledY = 0.5469501f;
-        annX[ANN_MSG]  = 0.9451092f;  annY[ANN_MSG]  = 0.7107956f;
-        annX[ANN_OFST] = 0.9451092f;  annY[ANN_OFST] = 0.7760186f;
-        annX[ANN_DSPY] = 0.0537171f;  annY[ANN_DSPY] = 0.712924f;
-        annX[ANN_FAIL] = 0.05705496f; annY[ANN_FAIL] = 0.782147f;
-        screenL = 0.14666007f; screenT = 0.07033213f;
-        screenR = 0.84544694f; screenB = 0.43650627f;
     }
 
     private Bitmap decodeSampledBitmap(Context context, int resId, int reqSize) {
@@ -426,15 +454,6 @@ public class CDUView extends View {
         keyListener = l;
     }
 
-    /** Re-read calibration prefs and redraw. Call from MainActivity.onResume
-     *  so positions saved by CalibrateActivity777 take effect immediately
-     *  when the user returns to the CDU, without an app restart. */
-    public void reloadCalibration(Context context) {
-        loadCalibrationData(context);
-        setupLayout();
-        postInvalidate();
-    }
-
     public void setSoundEnabled(boolean enabled) {
         this.soundEnabled = enabled;
     }
@@ -451,8 +470,9 @@ public class CDUView extends View {
         return hapticEnabled;
     }
 
+    /** EXEC LED above the EXEC button — white when armed (PMDG sim render). */
     public void setLedState(boolean isOn) {
-        ledState = isOn;
+        ledExec = isOn;
         postInvalidate();
     }
 
@@ -473,6 +493,55 @@ public class CDUView extends View {
         postInvalidate();
     }
 
+    /** Cockpit-feel press animation: fade in over PRESS_FADE_IN_MS, then fade
+     *  out over PRESS_FADE_OUT_MS with deceleration. Rapid-press correctness:
+     *  AnimatorSet.cancel() fires onAnimationEnd synchronously, so we assign
+     *  the new animator to the pressAnimator slot BEFORE cancelling the old
+     *  one — the dying old listener checks `if (pressAnimator != anim) return`
+     *  and leaves pressedArea + alpha alone, so the fresh animation isn't
+     *  clobbered. fadeIn starts from current alpha so re-press during fade-out
+     *  smoothly tops up instead of dipping through 0. */
+    private void startPressAnimation() {
+        AnimatorSet old = pressAnimator;
+        int startAlpha = currentHighlightAlpha;
+
+        long fadeInMs = PRESS_FADE_IN_MS;
+        if (startAlpha > 0 && startAlpha < HIGHLIGHT_MAX_ALPHA) {
+            fadeInMs = PRESS_FADE_IN_MS * (HIGHLIGHT_MAX_ALPHA - startAlpha) / HIGHLIGHT_MAX_ALPHA;
+            if (fadeInMs < 1) fadeInMs = 1;
+        }
+        ValueAnimator fadeIn = ValueAnimator.ofInt(startAlpha, HIGHLIGHT_MAX_ALPHA);
+        fadeIn.setDuration(fadeInMs);
+        fadeIn.addUpdateListener(a -> {
+            currentHighlightAlpha = (int) a.getAnimatedValue();
+            postInvalidate();
+        });
+
+        ValueAnimator fadeOut = ValueAnimator.ofInt(HIGHLIGHT_MAX_ALPHA, 0);
+        fadeOut.setDuration(PRESS_FADE_OUT_MS);
+        fadeOut.setInterpolator(new DecelerateInterpolator(2.0f));
+        fadeOut.addUpdateListener(a -> {
+            currentHighlightAlpha = (int) a.getAnimatedValue();
+            postInvalidate();
+        });
+
+        final AnimatorSet anim = new AnimatorSet();
+        anim.playSequentially(fadeIn, fadeOut);
+        anim.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                if (pressAnimator != anim) return;  // newer press took over
+                pressedArea = null;
+                currentHighlightAlpha = 0;
+                postInvalidate();
+            }
+        });
+
+        pressAnimator = anim;
+        if (old != null) old.cancel();
+        anim.start();
+    }
+
     public void updateScreen(char[][] syms, int[][] cols) {
         for (int r = 0; r < CDU_ROWS; r++) {
             System.arraycopy(syms[r], 0, symbols[r], 0, CDU_COLS);
@@ -485,7 +554,7 @@ public class CDUView extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         setupLayout();
-        
+
         if (skin != null) {
             float imgW = skin.getWidth();
             float imgH = skin.getHeight();
@@ -494,7 +563,7 @@ public class CDUView extends View {
             float drawW, drawH;
             if (scrRatio < imgRatio) {
                 drawW = w; drawH = w / imgRatio;
-                imgOffsetX = 0; imgOffsetY = (h - drawH) / 2f;
+                imgOffsetX = 0; imgOffsetY = (h - drawH) / 2f;   // centred (public 777 — not bottom-pinned)
             } else {
                 drawH = h; drawW = h * imgRatio;
                 imgOffsetX = (w - drawW) / 2f; imgOffsetY = 0;
@@ -505,105 +574,222 @@ public class CDUView extends View {
             imgOffsetX = 0; imgOffsetY = 0;
         }
 
-        actualScreen.set(imgOffsetX + screenRect.left * imgScaleW, imgOffsetY + screenRect.top * imgScaleH,
-                         imgOffsetX + screenRect.right * imgScaleW, imgOffsetY + screenRect.bottom * imgScaleH);
-        
+        actualScreen.set(imgOffsetX + screenRect.left * imgScaleW,
+                         imgOffsetY + screenRect.top * imgScaleH,
+                         imgOffsetX + screenRect.right * imgScaleW,
+                         imgOffsetY + screenRect.bottom * imgScaleH);
+
         cellW = actualScreen.width() / CDU_COLS;
         cellH = actualScreen.height() / CDU_ROWS;
-        
+
         textPaint.setTextSize(cellH * 0.75f);
         textYOffset = cellH * 0.8f;
-        
-        
-        ledWidth = h * 0.05f;
-        ledHeight = h * 0.018f;
     }
 
     private void setupLayout() {
         if (touchAreas == null) touchAreas = new ArrayList<>();
         else touchAreas.clear();
 
-        touchAreas.add(new TouchArea(settingsX - 0.04f, settingsY - 0.025f, settingsX + 0.04f, settingsY + 0.025f, "SETTINGS_BTN"));
-        touchAreas.add(new TouchArea(closeX - 0.04f, closeY - 0.025f, closeX + 0.04f, closeY + 0.025f, "CLOSE_BTN"));
+        // 2 hardcoded UI buttons (top bar — not on the bezel, can't auto-detect)
+        touchAreas.add(new TouchArea(SETTINGS_BTN_RECT[0], SETTINGS_BTN_RECT[1],
+                SETTINGS_BTN_RECT[2], SETTINGS_BTN_RECT[3], "SETTINGS_BTN", Shape.ROUNDED_RECT));
+        touchAreas.add(new TouchArea(CLOSE_BTN_RECT[0], CLOSE_BTN_RECT[1],
+                CLOSE_BTN_RECT[2], CLOSE_BTN_RECT[3], "CLOSE_BTN", Shape.ROUNDED_RECT));
 
-        // Screen area — from calibration (falls back to hardcoded defaults)
-        screenRect.set(screenL, screenT, screenR, screenB);
+        // CDU character-grid screen rect — fixed by skin geometry.
+        screenRect.set(SCREEN_L, SCREEN_T, SCREEN_R, SCREEN_B);
 
-        String[] leftKeys  = {"LSK1L","LSK2L","LSK3L","LSK4L","LSK5L","LSK6L"};
-        String[] rightKeys = {"LSK1R","LSK2R","LSK3R","LSK4R","LSK5R","LSK6R"};
-        float[] lskL_X = {0.060290247f, 0.05340007f, 0.057346556f, 0.05340007f, 0.057346556f, 0.057346556f};
-        float[] lskL_Y = {0.13249597f, 0.18277177f, 0.23488782f, 0.28891772f, 0.3410338f, 0.39318663f};
-        float[] lskR_X = {0.9416183f, 0.93964505f, 0.9416183f, 0.93964505f, 0.9416183f, 0.9386746f};
-        float[] lskR_Y = {0.12874186f, 0.18402314f, 0.2361392f, 0.28891772f, 0.3410338f, 0.39318663f};
-        for (int i = 0; i < 6; i++) {
-            touchAreas.add(new TouchArea(lskL_X[i] - 0.04f, lskL_Y[i] - 0.025f, lskL_X[i] + 0.04f, lskL_Y[i] + 0.025f, leftKeys[i]));
-            touchAreas.add(new TouchArea(lskR_X[i] - 0.04f, lskR_Y[i] - 0.025f, lskR_X[i] + 0.04f, lskR_Y[i] + 0.025f, rightKeys[i]));
+        // 69 bezel buttons — pixel-detected from the skin bitmap.
+        scanButtonsFromBezel();
+    }
+
+    /** Pixel-detect each bezel button's actual face from the skin bitmap.
+     *  Mirrors the iFly737MAX 2026-05-06 implementation exactly: search rect,
+     *  grey&lt;60 mask, 2x2 binary opening, biggest connected component bbox.
+     *  CLR-bottom-clamped-to-/ special case preserved from v6 algorithm. */
+    private void scanButtonsFromBezel() {
+        if (skin == null) {
+            android.util.Log.w(TAG, "scanButtonsFromBezel: skin null, falling back to hint rects");
+            addAllAsHintFallback();
+            return;
+        }
+        int W, H;
+        try {
+            W = skin.getWidth();
+            H = skin.getHeight();
+        } catch (Exception e) {
+            android.util.Log.e(TAG, "scanButtonsFromBezel: skin getWidth/Height threw, falling back to hint rects", e);
+            addAllAsHintFallback();
+            return;
+        }
+        java.util.Map<String, RectF> detected = new java.util.HashMap<String, RectF>();
+        int detectErrors = 0;
+        for (Hint h : BUTTON_HINTS) {
+            RectF bbox = null;
+            try {
+                bbox = detectButtonBbox(h, W, H);
+            } catch (Throwable t) {
+                detectErrors++;
+                if (detectErrors == 1) {
+                    android.util.Log.e(TAG, "detectButtonBbox threw for '" + h.label
+                            + "' — falling back to hint rect for it (and any further failures)", t);
+                }
+            }
+            if (bbox != null) detected.put(h.label, bbox);
+        }
+        // CLR special case — printed label drops below the button face; clamp to /'s bottom.
+        RectF clr   = detected.get("CLR");
+        RectF slash = detected.get("/");
+        if (clr != null && slash != null) {
+            clr.bottom = slash.bottom;
+        }
+        int detectedCount = 0;
+        for (Hint h : BUTTON_HINTS) {
+            RectF bbox = detected.get(h.label);
+            if (bbox == null) {
+                touchAreas.add(new TouchArea(h.cx - h.hw, h.cy - h.hh,
+                        h.cx + h.hw, h.cy + h.hh, h.label, h.shape));
+            } else {
+                touchAreas.add(new TouchArea(bbox, h.label, h.shape));
+                detectedCount++;
+            }
+        }
+        android.util.Log.d(TAG, "scanButtonsFromBezel: detected " + detectedCount
+                + "/" + BUTTON_HINTS.length + " bezel buttons from " + W + "x" + H
+                + " skin (" + detectErrors + " errors)");
+    }
+
+    private void addAllAsHintFallback() {
+        for (Hint h : BUTTON_HINTS) {
+            touchAreas.add(new TouchArea(h.cx - h.hw, h.cy - h.hh,
+                    h.cx + h.hw, h.cy + h.hh, h.label, h.shape));
+        }
+    }
+
+    private RectF detectButtonBbox(Hint h, int W, int H) {
+        final float expand = 1.40f;
+        final int darkThreshold = 60;
+        float hw = h.hw * expand, hh = h.hh * expand;
+        int sx0 = Math.max(0, Math.round((h.cx - hw) * W));
+        int sx1 = Math.min(W, Math.round((h.cx + hw) * W));
+        int sy0 = Math.max(0, Math.round((h.cy - hh) * H));
+        int sy1 = Math.min(H, Math.round((h.cy + hh) * H));
+        int sw = sx1 - sx0, sh = sy1 - sy0;
+        if (sw <= 2 || sh <= 2) return null;
+
+        int[] pixels = new int[sw * sh];
+        skin.getPixels(pixels, 0, sw, sx0, sy0, sw, sh);
+        boolean[] mask = new boolean[sw * sh];
+        for (int i = 0; i < pixels.length; i++) {
+            int p = pixels[i];
+            int grey = (((p >> 16) & 0xFF) + ((p >> 8) & 0xFF) + (p & 0xFF)) / 3;
+            mask[i] = grey < darkThreshold;
         }
 
-        touchAreas.add(new TouchArea(0.1194f, 0.5007f, 0.1994f, 0.5507f, "INIT"));
-        touchAreas.add(new TouchArea(0.2460f, 0.4988f, 0.3260f, 0.5488f, "RTE"));
-        touchAreas.add(new TouchArea(0.3657f, 0.5007f, 0.4457f, 0.5507f, "DEP ARR"));
-        touchAreas.add(new TouchArea(0.4943f, 0.5001f, 0.5743f, 0.5501f, "ALTN"));
-        touchAreas.add(new TouchArea(0.6190f, 0.4988f, 0.6990f, 0.5488f, "CRZ"));
+        boolean[] eroded = new boolean[sw * sh];
+        for (int y = 0; y < sh - 1; y++) {
+            for (int x = 0; x < sw - 1; x++) {
+                int i = y * sw + x;
+                eroded[i] = mask[i] && mask[i + 1] && mask[i + sw] && mask[i + sw + 1];
+            }
+        }
+        boolean[] opened = new boolean[sw * sh];
+        for (int y = 0; y < sh; y++) {
+            for (int x = 0; x < sw; x++) {
+                int i = y * sw + x;
+                if (eroded[i]) {
+                    opened[i] = true;
+                    if (x + 1 < sw) opened[i + 1] = true;
+                    if (y + 1 < sh) opened[i + sw] = true;
+                    if (x + 1 < sw && y + 1 < sh) opened[i + sw + 1] = true;
+                }
+            }
+        }
 
-        touchAreas.add(new TouchArea(0.1214f, 0.5579f, 0.2014f, 0.6079f, "FIX"));
-        touchAreas.add(new TouchArea(0.2460f, 0.5579f, 0.3260f, 0.6079f, "LEGS"));
-        touchAreas.add(new TouchArea(0.3687f, 0.5566f, 0.4487f, 0.6066f, "HOLD"));
-        touchAreas.add(new TouchArea(0.4914f, 0.5616f, 0.5714f, 0.6116f, "FMC"));
-        touchAreas.add(new TouchArea(0.6170f, 0.5585f, 0.6970f, 0.6085f, "PROG"));
-        touchAreas.add(new TouchArea(0.7829f, 0.5585f, 0.8629f, 0.6085f, "EXEC"));
+        int[] labels = new int[sw * sh];
+        int n = connectedComponents(opened, sw, sh, labels);
+        if (n == 0) return null;
+        int[] count = new int[n + 1];
+        for (int v : labels) if (v > 0) count[v]++;
+        int bestLbl = 1;
+        for (int i = 2; i <= n; i++) if (count[i] > count[bestLbl]) bestLbl = i;
+        if (count[bestLbl] < 8) return null;
 
-        touchAreas.add(new TouchArea(0.1194f, 0.6175f, 0.1994f, 0.6675f, "MENU"));
-        touchAreas.add(new TouchArea(0.2431f, 0.6182f, 0.3231f, 0.6682f, "NAV"));
-        touchAreas.add(new TouchArea(0.3952f, 0.6370f, 0.4752f, 0.6870f, "A"));
-        touchAreas.add(new TouchArea(0.4982f, 0.6383f, 0.5782f, 0.6883f, "B"));
-        touchAreas.add(new TouchArea(0.6013f, 0.6364f, 0.6813f, 0.6864f, "C"));
-        touchAreas.add(new TouchArea(0.7014f, 0.6333f, 0.7814f, 0.6833f, "D"));
-        touchAreas.add(new TouchArea(0.8084f, 0.6364f, 0.8884f, 0.6864f, "E"));
+        int bx0 = sw, by0 = sh, bx1 = -1, by1 = -1;
+        for (int y = 0; y < sh; y++) {
+            int row = y * sw;
+            for (int x = 0; x < sw; x++) {
+                if (labels[row + x] == bestLbl) {
+                    if (x < bx0) bx0 = x;
+                    if (x > bx1) bx1 = x;
+                    if (y < by0) by0 = y;
+                    if (y > by1) by1 = y;
+                }
+            }
+        }
+        if (bx1 < 0) return null;
+        return new RectF(
+                (sx0 + bx0)     / (float) W,
+                (sy0 + by0)     / (float) H,
+                (sx0 + bx1 + 1) / (float) W,
+                (sy0 + by1 + 1) / (float) H);
+    }
 
-        touchAreas.add(new TouchArea(0.1214f, 0.6810f, 0.2014f, 0.7310f, "PREV PAGE"));
-        touchAreas.add(new TouchArea(0.2431f, 0.6816f, 0.3231f, 0.7316f, "NEXT PAGE"));
-        touchAreas.add(new TouchArea(0.3952f, 0.6948f, 0.4752f, 0.7448f, "F"));
-        touchAreas.add(new TouchArea(0.4982f, 0.6948f, 0.5782f, 0.7448f, "G"));
-        touchAreas.add(new TouchArea(0.6023f, 0.6948f, 0.6823f, 0.7448f, "H"));
-        touchAreas.add(new TouchArea(0.7014f, 0.6960f, 0.7814f, 0.7460f, "I"));
-        touchAreas.add(new TouchArea(0.8054f, 0.6929f, 0.8854f, 0.7429f, "J"));
+    private int connectedComponents(boolean[] mask, int w, int h, int[] labels) {
+        int[] parent = new int[64];
+        parent[0] = 0;
+        int next = 1;
+        java.util.Arrays.fill(labels, 0);
+        for (int y = 0; y < h; y++) {
+            int row = y * w;
+            for (int x = 0; x < w; x++) {
+                int i = row + x;
+                if (!mask[i]) continue;
+                int up = (y > 0 && mask[i - w]) ? labels[i - w] : 0;
+                int lt = (x > 0 && mask[i - 1]) ? labels[i - 1] : 0;
+                if (up == 0 && lt == 0) {
+                    if (next >= parent.length) {
+                        parent = java.util.Arrays.copyOf(parent, parent.length * 2);
+                    }
+                    parent[next] = next;
+                    labels[i] = next;
+                    next++;
+                } else if (up != 0 && lt == 0) {
+                    labels[i] = up;
+                } else if (up == 0) {
+                    labels[i] = lt;
+                } else {
+                    int u = findRoot(parent, up);
+                    int v = findRoot(parent, lt);
+                    int min = Math.min(u, v), max = Math.max(u, v);
+                    if (min != max) parent[max] = min;
+                    labels[i] = min;
+                }
+            }
+        }
+        int[] remap = new int[next];
+        int compCount = 0;
+        for (int i = 1; i < next; i++) {
+            if (findRoot(parent, i) == i) {
+                compCount++;
+                remap[i] = compCount;
+            }
+        }
+        for (int i = 1; i < next; i++) {
+            if (remap[i] == 0) remap[i] = remap[findRoot(parent, i)];
+        }
+        for (int i = 0; i < labels.length; i++) {
+            if (labels[i] != 0) labels[i] = remap[labels[i]];
+        }
+        return compCount;
+    }
 
-        touchAreas.add(new TouchArea(0.0919f, 0.7557f, 0.1719f, 0.8057f, "1"));
-        touchAreas.add(new TouchArea(0.1881f, 0.7557f, 0.2681f, 0.8057f, "2"));
-        touchAreas.add(new TouchArea(0.2912f, 0.7520f, 0.3712f, 0.8020f, "3"));
-        touchAreas.add(new TouchArea(0.3952f, 0.7557f, 0.4752f, 0.8057f, "K"));
-        touchAreas.add(new TouchArea(0.4973f, 0.7520f, 0.5773f, 0.8020f, "L"));
-        touchAreas.add(new TouchArea(0.6023f, 0.7526f, 0.6823f, 0.8026f, "M"));
-        touchAreas.add(new TouchArea(0.7063f, 0.7557f, 0.7863f, 0.8057f, "N"));
-        touchAreas.add(new TouchArea(0.8054f, 0.7520f, 0.8854f, 0.8020f, "O"));
-
-        touchAreas.add(new TouchArea(0.0900f, 0.8135f, 0.1700f, 0.8635f, "4"));
-        touchAreas.add(new TouchArea(0.1911f, 0.8117f, 0.2711f, 0.8617f, "5"));
-        touchAreas.add(new TouchArea(0.2823f, 0.8123f, 0.3623f, 0.8623f, "6"));
-        touchAreas.add(new TouchArea(0.3952f, 0.8117f, 0.4752f, 0.8617f, "P"));
-        touchAreas.add(new TouchArea(0.4982f, 0.8135f, 0.5782f, 0.8635f, "Q"));
-        touchAreas.add(new TouchArea(0.5984f, 0.8117f, 0.6784f, 0.8617f, "R"));
-        touchAreas.add(new TouchArea(0.7004f, 0.8135f, 0.7804f, 0.8635f, "S"));
-        touchAreas.add(new TouchArea(0.8084f, 0.8117f, 0.8884f, 0.8617f, "T"));
-
-        touchAreas.add(new TouchArea(0.0861f, 0.8713f, 0.1661f, 0.9213f, "7"));
-        touchAreas.add(new TouchArea(0.1891f, 0.8701f, 0.2691f, 0.9201f, "8"));
-        touchAreas.add(new TouchArea(0.2872f, 0.8701f, 0.3672f, 0.9201f, "9"));
-        touchAreas.add(new TouchArea(0.3982f, 0.8701f, 0.4782f, 0.9201f, "U"));
-        touchAreas.add(new TouchArea(0.4973f, 0.8694f, 0.5773f, 0.9194f, "V"));
-        touchAreas.add(new TouchArea(0.5984f, 0.8701f, 0.6784f, 0.9201f, "W"));
-        touchAreas.add(new TouchArea(0.7014f, 0.8701f, 0.7814f, 0.9201f, "X"));
-        touchAreas.add(new TouchArea(0.8054f, 0.8713f, 0.8854f, 0.9213f, "Y"));
-
-        touchAreas.add(new TouchArea(0.0870f, 0.9272f, 0.1670f, 0.9772f, "."));
-        touchAreas.add(new TouchArea(0.1881f, 0.9278f, 0.2681f, 0.9778f, "0"));
-        touchAreas.add(new TouchArea(0.2872f, 0.9310f, 0.3672f, 0.9810f, "+/-"));
-        touchAreas.add(new TouchArea(0.3952f, 0.9278f, 0.4752f, 0.9778f, "Z"));
-        touchAreas.add(new TouchArea(0.4982f, 0.9272f, 0.5782f, 0.9772f, "SP"));
-        touchAreas.add(new TouchArea(0.6013f, 0.9278f, 0.6813f, 0.9778f, "DEL"));
-        touchAreas.add(new TouchArea(0.7044f, 0.9310f, 0.7844f, 0.9810f, "/"));
-        touchAreas.add(new TouchArea(0.8025f, 0.9272f, 0.8825f, 0.9772f, "CLR"));
+    private static int findRoot(int[] parent, int i) {
+        while (parent[i] != i) {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        return i;
     }
 
     @Override
@@ -623,25 +809,38 @@ public class CDUView extends View {
         canvas.drawRect(actualScreen, screenPaint);
 
         if (connectionStatus != null && !connectionStatus.isEmpty()) {
-            // Big amber status text replaces the char grid until live data clears it.
             float screenH = actualScreen.height();
-            statusPaint.setTextSize(screenH * 0.07f);
+            // Auto-fit: long status messages (e.g. aircraft mismatch /
+            // "Open matching app or load matching aircraft") would otherwise
+            // run off both edges of the CDU rect. Measure widest line at the
+            // default size and shrink textSize proportionally to fit ~94 %
+            // of screen width, floored at a readable minimum.
+            String[] lines = connectionStatus.split("\n");
+            float screenW     = actualScreen.width();
+            float textSize    = screenH * 0.07f;
+            float minTextSize = screenH * 0.035f;
+            float maxLineW    = screenW * 0.94f;
+            statusPaint.setTextSize(textSize);
+            float widest = 0f;
+            for (String l : lines) {
+                float lineW = statusPaint.measureText(l);
+                if (lineW > widest) widest = lineW;
+            }
+            if (widest > maxLineW) {
+                textSize *= maxLineW / widest;
+                if (textSize < minTextSize) textSize = minTextSize;
+                statusPaint.setTextSize(textSize);
+            }
             float cx = actualScreen.centerX();
             float cy = actualScreen.centerY();
-            String[] lines = connectionStatus.split("\n");
-            float lineSpacing = screenH * 0.10f;
+            float lineSpacing = textSize * 1.42f;
             float startY = cy - ((lines.length - 1) * lineSpacing * 0.5f);
             for (int i = 0; i < lines.length; i++) {
                 canvas.drawText(lines[i], cx, startY + i * lineSpacing, statusPaint);
             }
             drawLedIndicator(canvas);
             drawAnnunciators(canvas);
-            if (pressedArea != null) {
-                float px = imgOffsetX + pressedArea.rect.centerX() * imgScaleW;
-                float py = imgOffsetY + pressedArea.rect.centerY() * imgScaleH;
-                float radius = (Math.min(pressedArea.rect.width() * imgScaleW, pressedArea.rect.height() * imgScaleH) / 2f) * 0.7f;
-                canvas.drawCircle(px, py, radius, highlightPaint);
-            }
+            drawPressOverlay(canvas);
             return;
         }
 
@@ -650,7 +849,7 @@ public class CDUView extends View {
             for (int c = 0; c < CDU_COLS; c++) {
                 if (symbols[r][c] != ' ') {
                     textPaint.setColor(colors[r][c]);
-                    canvas.drawText(symbols[r], c, 1, 
+                    canvas.drawText(symbols[r], c, 1,
                                     actualScreen.left + c * cellW + cellW * 0.5f,
                                     rowY, textPaint);
                 }
@@ -659,63 +858,95 @@ public class CDUView extends View {
 
         drawLedIndicator(canvas);
         drawAnnunciators(canvas);
+        drawPressOverlay(canvas);
+    }
 
-        if (pressedArea != null) {
-            float px = imgOffsetX + pressedArea.rect.centerX() * imgScaleW;
-            float py = imgOffsetY + pressedArea.rect.centerY() * imgScaleH;
-            float radius = (Math.min(pressedArea.rect.width() * imgScaleW, pressedArea.rect.height() * imgScaleH) / 2f) * 0.7f;
-            canvas.drawCircle(px, py, radius, highlightPaint);
+    /** Press overlay sized to the auto-detected button face. Shape comes from
+     *  TouchArea.shape (set by the bezel scan or hint metadata). Uses the
+     *  RectF overload of drawRoundRect (API 1) — the float-args overload is
+     *  API 21+ only and crashes on Android 4.4 / dalvikvm. */
+    private void drawPressOverlay(Canvas canvas) {
+        if (pressedArea == null || currentHighlightAlpha <= 0) return;
+        RectF r = pressedArea.rect;
+        float l = imgOffsetX + r.left   * imgScaleW;
+        float t = imgOffsetY + r.top    * imgScaleH;
+        float rt = imgOffsetX + r.right  * imgScaleW;
+        float b = imgOffsetY + r.bottom * imgScaleH;
+        highlightPaint.setAlpha(currentHighlightAlpha);
+
+        if (pressedArea.shape == Shape.CIRCLE) {
+            float cx = (l + rt) * 0.5f;
+            float cy = (t + b) * 0.5f;
+            float radius = Math.min(rt - l, b - t) * 0.5f;
+            canvas.drawCircle(cx, cy, radius, highlightPaint);
+        } else {
+            float corner = Math.min(rt - l, b - t) * 0.22f;
+            pressOverlayRect.set(l, t, rt, b);
+            canvas.drawRoundRect(pressOverlayRect, corner, corner, highlightPaint);
         }
     }
 
-
+    /** Render the EXEC LED slot above the EXEC button at EXEC_LED_RECT.
+     *  Drawn at 90% of EXEC_LED_RECT (5% inset each side) so the lit panel
+     *  sits inside the bezel cutout instead of edge-to-edge.
+     *  Lit = bright white with soft outer glow (PMDG sim render); off = dark
+     *  grey filler. */
     private void drawLedIndicator(Canvas canvas) {
-        float px = imgOffsetX + ledX * imgScaleW;
-        float py = imgOffsetY + ledY * imgScaleH;
+        float l = imgOffsetX + EXEC_LED_RECT[0] * imgScaleW;
+        float t = imgOffsetY + EXEC_LED_RECT[1] * imgScaleH;
+        float r = imgOffsetX + EXEC_LED_RECT[2] * imgScaleW;
+        float b = imgOffsetY + EXEC_LED_RECT[3] * imgScaleH;
+        float dx = (r - l) * 0.05f;
+        float dy = (b - t) * 0.05f;
+        l += dx; r -= dx;
+        t += dy; b -= dy;
+        boolean lit = ledExec || LED_TEST_ALL_ON;
+        ledRectF.set(l, t, r, b);
+        float corner = Math.min(r - l, b - t) * 0.25f;
 
-        if (ledState) {
-            ledBoxPaint.setColor(Color.argb(255, 0, 255, 0));
+        if (lit) {
+            ledBoxPaint.setColor(Color.argb(255, 255, 255, 255));
             ledBoxPaint.setMaskFilter(ledGlowFilter);
-            canvas.drawRect(px - ledWidth/2, py - ledHeight/2, px + ledWidth/2, py + ledHeight/2, ledBoxPaint);
+            canvas.drawRoundRect(ledRectF, corner, corner, ledBoxPaint);
             ledBoxPaint.setMaskFilter(null);
-            ledBoxPaint.setColor(Color.argb(255, 100, 255, 100));
-            canvas.drawRect(px - ledWidth/2, py - ledHeight/2, px + ledWidth/2, py + ledHeight/2, ledBoxPaint);
+            ledBoxPaint.setColor(Color.argb(255, 255, 255, 255));
+            canvas.drawRoundRect(ledRectF, corner, corner, ledBoxPaint);
         } else {
             ledBoxPaint.setColor(Color.argb(255, 40, 40, 40));
-            canvas.drawRect(px - ledWidth/2, py - ledHeight/2, px + ledWidth/2, py + ledHeight/2, ledBoxPaint);
+            canvas.drawRoundRect(ledRectF, corner, corner, ledBoxPaint);
         }
     }
 
     /** Draw the four bezel-strip annunciators (MSG, OFST, DSPY, FAIL) as
      *  stacked vertical text — one character per line going down, characters
-     *  stay upright (NOT canvas.rotate). Inactive annunciators render in
-     *  their dim colour so labels stay visible on the bezel even when off.
-     *  Mirrors the Fenix/FBW MCDU pattern verbatim: dedicated annLabelPaint
-     *  with system Monospace Bold (no B612 asset dependency), and each
-     *  character drawn CENTER-aligned on px so font-metric variance across
-     *  devices can't shift the stack horizontally. */
+     *  upright (NOT canvas.rotate). Inactive annunciators render in their dim
+     *  colour so labels stay readable on the bezel even when off. */
     private void drawAnnunciators(Canvas canvas) {
-        // Scales with imgScaleH (drawn skin height) so size stays proportional
-        // across resolutions and letterboxed layouts. Coefficient trimmed to
-        // 0.0144f because PMDG 777 bezel labels are physically smaller than
-        // the FenixA320 strip annunciators (which use 0.014f * 1.152f).
         float charSize = imgScaleH * 0.0144f * 1.152f;
+        if (charSize < 1f) return;  // pre-layout; nothing meaningful to draw
         annLabelPaint.setTextSize(charSize);
         annLabelPaint.setFakeBoldText(true);
 
         Paint.FontMetrics fm = annLabelPaint.getFontMetrics();
         float lineH = charSize;
+        float baselineAdjust = (fm.ascent + fm.descent) / 2f;
 
         for (int i = 0; i < ANN_NAMES.length; i++) {
-            float px = imgOffsetX + annX[i] * imgScaleW;
-            float py = imgOffsetY + annY[i] * imgScaleH;
-
-            annLabelPaint.setColor(annOn[i] ? ANN_COLOR_ON[i] : ANN_COLOR_OFF[i]);
+            float[] rect = ANN_RECTS[i];
+            float px = imgOffsetX + ((rect[0] + rect[2]) * 0.5f) * imgScaleW;
+            float py = imgOffsetY + ((rect[1] + rect[3]) * 0.5f) * imgScaleH;
+            boolean lit = LED_TEST_ALL_ON || annOn[i];
+            annLabelPaint.setColor(lit ? ANN_COLOR_ON[i] : ANN_COLOR_OFF[i]);
+            if (lit) {
+                annLabelPaint.setShadowLayer(charSize * 0.35f, 0f, 0f, ANN_COLOR_ON[i]);
+            } else {
+                annLabelPaint.clearShadowLayer();
+            }
 
             String label = ANN_NAMES[i];
             float topY = py - ((label.length() - 1) * lineH) / 2f;
             for (int k = 0; k < label.length(); k++) {
-                float charY = topY + k * lineH - (fm.ascent + fm.descent) / 2f;
+                float charY = topY + k * lineH - baselineAdjust;
                 canvas.drawText(String.valueOf(label.charAt(k)), px, charY, annLabelPaint);
             }
         }
@@ -725,6 +956,10 @@ public class CDUView extends View {
         if (skin != null && !skin.isRecycled()) {
             skin.recycle();
             skin = null;
+        }
+        if (soundPlayer != null) {
+            soundPlayer.release();
+            soundPlayer = null;
         }
     }
 }

@@ -24,12 +24,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".CalibrateActivityA320"
-            android:exported="true"
-            android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden"/>
-
     </application>
 
 </manifest>

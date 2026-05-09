@@ -77,34 +77,6 @@
         android:inputType="number"
         android:layout_marginBottom="16dp"/>
 
-    <!--
-    <Button
-        android:id="@+id/btn_calibrate"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="📐 Calibrate Touch Areas"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:background="#ff8c00"
-        android:textColor="#FFFFFF"
-        android:padding="12dp"
-        android:layout_marginBottom="8dp"/>
-    -->
-
-    <!--
-    <Button
-        android:id="@+id/btn_calibrate_leds"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="💡 Calibrate LEDs Only"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:background="#ff8c00"
-        android:textColor="#FFFFFF"
-        android:padding="12dp"
-        android:layout_marginBottom="8dp"/>
-    -->
-
     <CheckBox
         android:id="@+id/cb_sound"
         android:layout_width="match_parent"

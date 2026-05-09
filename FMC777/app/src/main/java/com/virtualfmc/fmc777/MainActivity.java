@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -20,7 +19,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.RadioButton;
@@ -372,6 +370,7 @@ public class MainActivity extends Activity {
                                 JSONObject identifyMsg = new JSONObject();
                                 identifyMsg.put("type", "identify");
                                 identifyMsg.put("aircraft", "777");  // This is the 777 app
+                                identifyMsg.put("version", BuildConfig.VERSION_NAME);  // server uses this for "Android app outdated" detection (v0.4.0+)
                                 ws.sendText(identifyMsg.toString());
                                 Log.d(TAG, "Sent aircraft identification to server: 777");
                             } catch (Exception e) {
@@ -437,6 +436,17 @@ public class MainActivity extends Activity {
                                                 cduView.setLedState(ledOn);
                                                 Log.d(TAG, "EXEC LED: " + (ledOn ? "ON" : "OFF"));
                                             }
+                                        }
+                                    });
+                                } else if (type.equals("status_message")) {
+                                    // Server-pushed health overlay (v0.4.0). Reuses the v0.3.0
+                                    // setConnectionStatus amber-overlay API. Empty text = clear.
+                                    final String raw = data.optString("text", "");
+                                    final String overlay = raw.isEmpty() ? null : raw;
+                                    mainHandler.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            if (cduView != null) cduView.setConnectionStatus(overlay);
                                         }
                                     });
                                 }
@@ -598,8 +608,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Pick up any calibration the user just saved in CalibrateActivity777
-        if (cduView != null) cduView.reloadCalibration(this);
         // Re-register WiFi callback + reconnect fresh when returning to foreground
         registerNetworkCallback();
         retryCount = 0;

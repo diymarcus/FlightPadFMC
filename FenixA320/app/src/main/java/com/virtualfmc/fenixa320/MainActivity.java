@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -20,7 +19,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.RadioButton;
@@ -405,6 +403,13 @@ public class MainActivity extends Activity {
             mcduView.setSoundEnabled(sound);
             mcduView.setHapticEnabled(haptic);
         }
+        // User saved new settings — clear the in-flight guard so the
+        // fresh connect attempt can run. Without this, a pending mDNS
+        // discovery (15 s window) leaves isConnecting=true and the new
+        // call to startConnectionProcess() returns early. First-install
+        // users who switch to Manual IP would see no connection until
+        // they killed and relaunched the app.
+        isConnecting = false;
         startConnectionProcess();
     }
 
@@ -525,6 +530,7 @@ public class MainActivity extends Activity {
                                 JSONObject identify = new JSONObject();
                                 identify.put("type", "identify");
                                 identify.put("aircraft", "FENIXA320");
+                                identify.put("version", BuildConfig.VERSION_NAME);  // server uses this for "Android app outdated" detection (v0.4.0+)
                                 ws.sendText(identify.toString());
                                 Log.d(TAG, "Sent identify: FENIXA320");
                             } catch (Exception e) {
@@ -535,7 +541,33 @@ public class MainActivity extends Activity {
                         @Override
                         public void onTextMessage(WebSocket ws, String msg) {
                             if (ws != webSocket) return;
+                            // Server-pushed health overlay (v0.4.0) — reuses the v0.3.0
+                            // setConnectionStatus amber overlay. Intercept before the
+                            // SimBridge parser since SimBridge messages don't carry a
+                            // "type" field, so they won't match.
+                            if (handleStatusMessage(msg)) return;
                             parseSimBridgeMessage(msg);
+                        }
+
+                        // status_message intercept — see onTextMessage. Returns true
+                        // if the message was a status_message (handled here) and the
+                        // SimBridge parser should be skipped.
+                        private boolean handleStatusMessage(String msg) {
+                            if (msg == null || !msg.startsWith("{")) return false;
+                            try {
+                                JSONObject obj = new JSONObject(msg);
+                                if (!"status_message".equals(obj.optString("type"))) return false;
+                                final String raw = obj.optString("text", "");
+                                final String overlay = raw.isEmpty() ? null : raw;
+                                mainHandler.post(new Runnable() {
+                                    @Override public void run() {
+                                        if (mcduView != null) mcduView.setConnectionStatus(overlay);
+                                    }
+                                });
+                                return true;
+                            } catch (Exception e) {
+                                return false;
+                            }
                         }
 
                         @Override
@@ -849,33 +881,7 @@ public class MainActivity extends Activity {
             }
         });
         builder.setNegativeButton(R.string.cancel, null);
-
-        final AlertDialog dialog = builder.create();
-        dialog.show();
-
-        Button btnCalFull = dialogView.findViewById(R.id.btn_calibrate);
-        if (btnCalFull != null) {
-            btnCalFull.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    dialog.dismiss();
-                    Intent it = new Intent(MainActivity.this, CalibrateActivityA320.class);
-                    it.putExtra(CalibrateActivityA320.EXTRA_MODE, CalibrateActivityA320.MODE_FULL);
-                    startActivity(it);
-                }
-            });
-        }
-
-        Button btnCalLeds = dialogView.findViewById(R.id.btn_calibrate_leds);
-        if (btnCalLeds != null) {
-            btnCalLeds.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    dialog.dismiss();
-                    Intent it = new Intent(MainActivity.this, CalibrateActivityA320.class);
-                    it.putExtra(CalibrateActivityA320.EXTRA_MODE, CalibrateActivityA320.MODE_LEDS);
-                    startActivity(it);
-                }
-            });
-        }
+        builder.show();
     }
 
     // ─── WiFi reconnect ───────────────────────────────────────────────────────

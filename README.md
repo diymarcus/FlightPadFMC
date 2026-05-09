@@ -1,6 +1,6 @@
 ================================================================================
-  FlightPadFMC — Native Android FMC / MCDU for PMDG 737, PMDG 777, FlyByWire A320 & Fenix A320
-  Version 0.3.0
+  FlightPadFMC — Native Android FMC / MCDU for PMDG 737, PMDG 777, iFly 737 MAX, FlyByWire A320 & Fenix A320
+  Version 0.4.0
   By SilenceDIY (Marcus)
   https://github.com/diymarcus/FlightPadFMC
 ================================================================================
@@ -8,21 +8,22 @@
 DESCRIPTION
 -----------
 FlightPadFMC turns your Android tablet or phone into a fully functional CDU /
-MCDU for the PMDG 737, PMDG 777, FlyByWire A320 and Fenix A320 in Microsoft
-Flight Simulator 2020 and 2024.
+MCDU for the PMDG 737, PMDG 777, iFly 737 MAX, FlyByWire A320 and Fenix A320
+in Microsoft Flight Simulator 2020 and 2024.
 
 Unlike web-based solutions, this is a true native Android app — faster,
 smoother and more responsive. The CDU / MCDU skins are pixel-accurate, touch
 input is calibrated, and the display updates live over your local WiFi.
 
-Four separate Android apps are provided, one per aircraft type:
-  - 737PMDG.apk    — PMDG 737 NGXu (700 / 800 / 900)
-  - 777PMDG.apk    — PMDG 777-300ER / 777F
-  - FBWA320.apk    — FlyByWire A32NX (via SimBridge)
-  - FenixA320.apk  — Fenix A320 v2 (via Fenix's built-in GraphQL server)
+Five separate Android apps are provided, one per aircraft type:
+  - 737PMDG.apk      — PMDG 737 NGXu (700 / 800 / 900)
+  - 777PMDG.apk      — PMDG 777-300ER / 777F
+  - iFly737MAX.apk   — iFly 737 MAX (7 / 8 / 8200 / 9 / 10)
+  - FBWA320.apk      — FlyByWire A32NX (via SimBridge)
+  - FenixA320.apk    — Fenix A320 v2 (via Fenix's built-in GraphQL server)
 
 One Windows server acts as the bridge between MSFS and the Android apps. The
-same server handles all four aircraft — simply launch the matching app on
+same server handles all five aircraft — simply launch the matching app on
 your tablet and the server figures out the rest.
 
 Supported platforms:
@@ -37,13 +38,24 @@ HOW IT WORKS
   PMDG 737 / 777:
       MSFS + PMDG Aircraft
             |
-         SimConnect + MobiFlight WASM
+         SimConnect (PMDG SDK)
             |
       FlightPadFMC Server (FlightPadFMCServer.exe)
             |
           WiFi / LAN  (WebSocket)
             |
       FlightPadFMC App (Android)
+
+  iFly 737 MAX:
+      MSFS + iFly 737 MAX
+            |
+       Win32 IPC: WM_COPYDATA (keys) + Shared Memory (screen + LEDs)
+            |
+      FlightPadFMC Server   <-- talks to the iFly Plugin window
+            |
+          WiFi / LAN  (WebSocket)
+            |
+      iFly737MAX App (Android)
 
   FlyByWire A320:
       MSFS + FlyByWire A32NX
@@ -67,11 +79,13 @@ HOW IT WORKS
             |
       FenixA320 App (Android)
 
-The server connects to MSFS via SimConnect (PMDG), proxies SimBridge
-(FlyByWire), or proxies Fenix's built-in GraphQL server (Fenix), reads the
-CDU / MCDU screen data, and streams it to the Android app over your local
-network. Key presses are sent back to the server and forwarded to the
-aircraft in real time.
+The server connects to MSFS via SimConnect (PMDG), Win32 IPC + shared
+memory (iFly), proxies SimBridge (FlyByWire), or proxies Fenix's built-in
+GraphQL server (Fenix), reads the CDU / MCDU screen data, and streams it
+to the Android app over your local network. Key presses are sent back to
+the server and forwarded to the aircraft in real time. The server
+automatically detects which aircraft is loaded in MSFS and shows it in the
+Server Console.
 
 
 REQUIREMENTS
@@ -86,6 +100,14 @@ REQUIREMENTS
     - PMDG 737 NGXu or PMDG 777 add-on
     - PMDG SDK enabled in the aircraft options (Step 1)
     - (As of v0.3.0, the MobiFlight WASM Module is no longer required.)
+
+  For iFly 737 MAX:
+    - iFly 737 MAX add-on installed in MSFS
+    - The "iFly Plugin" add-on enabled in MSFS Add-Ons (it ships with the
+      iFly 737 MAX install — no separate download). FlightPadFMC reads
+      the CDU screen and LEDs from the plugin's shared-memory output and
+      sends key presses to the plugin's hidden window via WM_COPYDATA.
+      No PMDG SDK setup needed.
 
   For FlyByWire A320:
     - FlyByWire A32NX (free, from flightsim.to or FBW installer)
@@ -105,7 +127,7 @@ This is an Alpha release. Bug reports and feedback are very welcome — they
 help me track down the last rough edges before a proper 1.0.
 
 
-STEP 1 — Enable the PMDG SDK   (skip if you only use the A320 — FBW or Fenix)
+STEP 1 — Enable the PMDG SDK   (skip if you only use the iFly 737 MAX or A320 — FBW or Fenix)
 ---------------------------------------------------------------
 The PMDG SDK must be enabled so external tools (like FlightPadFMC) can read
 the CDU data. You need to edit a small .ini file once per aircraft per sim.
@@ -151,13 +173,23 @@ In every case:
   MSFS 2024 stores PMDG options under a different root than 2020 — look in
   the "Limitless" package, inside a WASM\MSFS2024 subfolder.
 
+  IMPORTANT — filename varies on MSFS 2024. PMDG appears to have dropped
+  the "NG3" suffix on the 737 options file in their MSFS 2024 builds, so
+  the actual file you need to edit may be either:
+    - 737_Options.ini      (newer PMDG MSFS 2024 builds — confirmed by
+                            user feedback on Steam 2024)
+    - 737NG3_Options.ini   (older legacy name, may still apply on some
+                            installs)
+  Edit whichever one actually exists in the work\ folder. The 777 keeps
+  its original name (777_Options.ini) on both 2020 and 2024.
+
   PMDG 737 (MSFS 2024, MS Store):
     %LOCALAPPDATA%\Packages\Microsoft.Limitless_8wekyb3d8bbwe\LocalState\
-    WASM\MSFS2024\pmdg-aircraft-738\work\737NG3_Options.ini
+    WASM\MSFS2024\pmdg-aircraft-738\work\737_Options.ini   (or 737NG3_Options.ini)
 
   PMDG 737 (MSFS 2024, Steam):
     %APPDATA%\Microsoft Flight Simulator 2024\WASM\MSFS2024\
-    pmdg-aircraft-738\work\737NG3_Options.ini
+    pmdg-aircraft-738\work\737_Options.ini   (or 737NG3_Options.ini)
 
   PMDG 777 (MSFS 2024, MS Store):
     %LOCALAPPDATA%\Packages\Microsoft.Limitless_8wekyb3d8bbwe\LocalState\
@@ -174,14 +206,29 @@ In every case:
   the same parent directory — that's the one to edit.
 
 
-STEP 2 — (no longer needed)
----------------------------
-Earlier versions required the MobiFlight WASM Module ("EVENT MODULE") in
+STEP 2 — Set up the iFly 737 MAX   (skip if you only use PMDG / FBW / Fenix)
+----------------------------------------------------------------------------
+The iFly 737 MAX uses its own communication mechanism — separate from the
+PMDG SDK. There is no .ini file to edit. The two requirements are:
+
+  1. The iFly 737 MAX add-on installed in MSFS (you already have this if
+     you fly the iFly 737).
+
+  2. The "iFly Plugin" enabled in MSFS Add-Ons. The plugin ships with the
+     iFly 737 MAX install and is enabled by default — but if you have ever
+     disabled add-ons in MSFS, double-check it is ON:
+       MSFS Main Menu -> Profile -> Add-Ons (or the in-flight Add-Ons toolbar)
+     Look for "iFly Plugin" (MSFS 2020) or "iFly Plugin - MSFS2024" (MSFS 2024).
+
+The plugin exposes a hidden window the FlightPadFMC server talks to via
+WM_COPYDATA, and a shared-memory region the server reads CDU screen + LED
+state from. No external EXE, no Community-folder add-on, no MobiFlight
+dependency.
+
+(Earlier versions of FlightPadFMC required the MobiFlight WASM Module in
 your Community folder to drive the PMDG 737 EXEC LED. As of v0.3.0 this
-is no longer needed — the server reads the 737 EXEC LED directly from the
-PMDG SDK alongside the other annunciators (MSG, CALL, FAIL, OFST). If you
-already have the MobiFlight WASM module installed for other purposes you
-can leave it; FlightPadFMC simply does not use it any more. Skip to STEP 3.
+is no longer needed for any aircraft — leave the WASM module installed if
+you have it for other tools, FlightPadFMC simply doesn't use it.)
 
 
 STEP 3 — Install FlyByWire SimBridge   (skip if you only use the 737 / 777 or Fenix)
@@ -283,20 +330,22 @@ STEP 4 — Run the FlightPadFMC Server
 
 STEP 5 — Install the Android App(s)
 -----------------------------------
-Four APKs are provided, one per aircraft. Install only the one(s) you fly:
+Five APKs are provided, one per aircraft. Install only the one(s) you fly:
 
-    737PMDG.apk    — for PMDG 737 NGXu
-    777PMDG.apk    — for PMDG 777
-    FBWA320.apk    — for FlyByWire A32NX
-    FenixA320.apk  — for Fenix A320 v2
+    737PMDG.apk      — for PMDG 737 NGXu
+    777PMDG.apk      — for PMDG 777
+    iFly737MAX.apk   — for iFly 737 MAX
+    FBWA320.apk      — for FlyByWire A32NX
+    FenixA320.apk    — for Fenix A320 v2
 
 To install:
   1. IMPORTANT — If you already have an older version of the same
      FlightPadFMC app installed, uninstall it first (Android Settings >
-     Apps > 737FMCPad / 777FMCPad / FBWA320 / FenixA320 > Uninstall). Installing a
-     new APK on top of an old one can fail with a "package conflict" /
-     "app not installed" error because the signing keys between builds
-     may differ. Uninstalling the old version first avoids this.
+     Apps > PMDG737 / PMDG777 / iFly737MAX / FBWA320 / FenixA320 > Uninstall).
+     Installing a new APK on top of an old one can fail with a "package
+     conflict" / "app not installed" error because the signing keys
+     between builds may differ. Uninstalling the old version first
+     avoids this.
   2. Copy the APK to your Android device.
   3. Enable "Install from unknown sources" in Android Settings > Security
      (or "Install unknown apps" on newer Android versions).
@@ -325,10 +374,11 @@ STEP 6 — Connect
 ----------------
   1. Make sure the PC and the Android device are on the same WiFi / LAN.
   2. Launch the matching app on your tablet:
-       - 737PMDG   -> PMDG 737 loaded
-       - 777PMDG   -> PMDG 777 loaded
-       - FBWA320   -> A32NX loaded + SimBridge running
-       - FenixA320 -> Fenix A320 v2 loaded (no extra setup)
+       - 737PMDG     -> PMDG 737 loaded
+       - 777PMDG     -> PMDG 777 loaded
+       - iFly737MAX  -> iFly 737 MAX loaded + iFly Plugin enabled
+       - FBWA320     -> A32NX loaded + SimBridge running
+       - FenixA320   -> Fenix A320 v2 loaded (no extra setup)
   3. The app auto-discovers the server via mDNS. No IP entry needed in most
      home networks.
   4. If auto-discovery fails: open the in-app Settings, switch mode to
@@ -435,11 +485,23 @@ FlightPadFMC adds support for aircraft that do expose the missing data.
   annunciators end-to-end via the PMDG SDK.)
 
 
-OPEN SOURCE CREDITS
--------------------
-  FlyByWire SimBridge
+CREDITS
+-------
+  PMDG Simulations — for the 737 NGXu and 777 add-ons, and for shipping
+  the PMDG SDK that makes external CDU clients like FlightPadFMC possible.
+  https://pmdg.com/
+
+  iFly Simulations Software — for the iFly 737 MAX add-on and the iFly
+  Plugin SDK that exposes CDU screen data and key input via Win32 IPC.
+  https://www.flight1.com/
+
+  FlyByWire Simulations — for the FlyByWire A32NX and SimBridge.
   Copyright (c) FlyByWire Simulations
   GPL-3.0 — https://github.com/flybywiresim/simbridge
+
+  Fenix Simulations — for the Fenix A320 v2 and its built-in GraphQL
+  server which makes external MCDU clients straightforward.
+  https://fenixsim.com/
 
   B612 Mono font
   SIL Open Font License — designed for aviation cockpit displays
@@ -448,6 +510,72 @@ OPEN SOURCE CREDITS
 ================================================================================
   CHANGELOG
 ================================================================================
+
+Version 0.4.0 — May 2026
+------------------------
+  NEW:
+  + iFly 737 MAX support via new iFly737MAX Android app
+      - Server module (ifly737max_handler) talks to the iFly Plugin
+        window via WM_COPYDATA for keys and reads CDU screen + 5 LEDs
+        (EXEC / MSG / FAIL / CALL / OFST) from shared memory
+      - Works on MSFS 2020 AND MSFS 2024, supports all MAX variants
+        (7 / 8 / 8200 / 9 / 10)
+      - No PMDG SDK, no SimBridge, no MobiFlight — just the iFly Plugin
+        that ships with the iFly 737 MAX install
+  + Automatic aircraft detection in the Server Console
+      - Server now identifies the loaded MSFS aircraft via SimConnect
+        AircraftLoaded event (flight-load) AND the TITLE SimVar
+        subscription (profile-menu pick — fires before Fly is clicked)
+      - The Server Console "Aircraft" row updates instantly as you
+        change aircraft in the MSFS profile menu, matching MobiFlight
+        behaviour. Five aircraft mapped: PMDG 777, PMDG 737NG,
+        iFly 737 MAX, FlyByWire A320, Fenix A320
+  + New Server Console panel — black status panel right of Connection
+      - Surfaces non-scrolling state: which aircraft is loaded, SDK
+        health (PMDG broadcast, iFly shm, SimBridge, Fenix WS),
+        aircraft mismatch warnings, MSFS auto-exit countdown,
+        outdated-Android-app warning, and a "Blue Sky Captain" happy-
+        path row when everything's healthy
+      - Activity log mirrors every transition with [OK] / [WARN] /
+        [ERROR] / [INFO] tags so .log files carry the same diagnosis
+  + Tablet-side status overlay (status_message wire format)
+      - When the server detects an issue (PMDG SDK silent, SimBridge
+        not running, Fenix EFB not running, aircraft mismatch), the
+        diagnosis appears as an amber overlay on the tablet's CDU/MCDU
+        screen — auto-fits to the screen width on long messages
+  + SimBridge 3-state startup check
+      - Distinguishes "package missing", "package found but tray app
+        not running on :8380", and "ready" — log message tells you
+        exactly what's wrong instead of a single generic "found"
+  + Server connection status shows MSFS version
+      - "Connected MSFS 2020" / "Connected MSFS 2024" instead of
+        bare "Connected" — confirms which SimConnect DLL is loaded
+  + Optional auto-close + auto-launch already shipped in v0.3.0; v0.4.0
+      adds the matching "Server updated to v0.4.0" first-launch banner
+      to remind users to install the matching APKs
+
+  IMPROVEMENTS — All 6 Android apps:
+  + Pixel-detected button shapes from the bezel skin — no manual
+      calibration needed for press feedback (Calibrate buttons removed
+      from settings; calibration data baked from cockpit-tablet sweeps)
+  + Cockpit-feel press animation — soft fade-in/fade-out shadow,
+      tuned for rapid-press cancel-ordering correctness
+  + Auto-fit overlay text — long status messages shrink to fit
+      instead of running off the screen edges
+  + Annunciator text now glows when lit — soft halo radiating from
+      each glyph in the same colour as the label, mimicking how MSG /
+      OFST / DSPY / FAIL / CALL appear in the actual sim cockpit
+  + EXEC LED rendered as a rounded-corner pill (PMDG / iFly only) at
+      90% size in white — matches the in-sim render
+  + FAIL annunciator now red on iFly + FMC737 (was amber)
+  + FM annunciator now white on FBW + Fenix (was amber)
+  + Settings-save manual-IP reconnect bug fixed across the fleet
+  + Launcher labels unified: PMDG737 / PMDG777 / PMDG777-Silence /
+      iFly737MAX / FBWA320 / FenixA320
+
+  CHANGES:
+  + Server version bumped to 0.4.0; all 6 APKs bumped to versionCode 3
+    / versionName "0.4.0"
 
 Version 0.3.0 — May 2026
 ------------------------
@@ -597,22 +725,9 @@ Version 0.1.0 — March 2026
   ROADMAP — What's next
 ================================================================================
 
-The next aircraft targeted for FlightPadFMC support is fully researched,
-SDK paths are already scoped out, and it will be added as a new Android app
-in an upcoming release:
-
-  iFly 737 MAX
-  ------------
-  - CDU screen via Windows shared memory (iFly737MAX_SDK_FileMappingObject)
-  - Full 14x24 character grid with per-cell color + small-font flags
-  - Key input via WM_COPYDATA messages to the iFly Plugin window
-  - LEDs: EXEC, MSG, FAIL, CALL, OFST
-  - Works on MSFS 2020 AND MSFS 2024
-  - Supports all MAX variants (7 / 8 / 8200 / 9 / 10)
-
-Other items on the longer-term roadmap:
+  - PFD / MFD secondary display app — replace the 7" HDMI MSFS pop-out
+    screen with a WiFi-driven Android tablet, sharing this server's EXE
   - Single Android app with automatic skin-switch between aircraft
-  - PFD / MFD secondary display app
   - Second CDU support (Captain + F/O simultaneously)
   - iOS port (community contribution welcome)
 

@@ -77,36 +77,6 @@
         android:inputType="number"
         android:layout_marginBottom="16dp"/>
 
-    <!-- Calibrate buttons hidden — annunciator positions baked into MCDUView
-         defaults after the 2026-05-01 rework. To restore: change
-         android:visibility="gone" to "visible" on both buttons. R.id refs
-         and the MainActivity click handlers stay live either way. -->
-    <Button
-        android:id="@+id/btn_calibrate"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="📐 Calibrate Touch Areas (Full)"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:background="#ff8c00"
-        android:textColor="#FFFFFF"
-        android:padding="12dp"
-        android:layout_marginBottom="8dp"
-        android:visibility="gone"/>
-
-    <Button
-        android:id="@+id/btn_calibrate_leds"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="💡 Calibrate LEDs Only"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:background="#ff8c00"
-        android:textColor="#FFFFFF"
-        android:padding="12dp"
-        android:layout_marginBottom="8dp"
-        android:visibility="gone"/>
-
     <CheckBox
         android:id="@+id/cb_sound"
         android:layout_width="match_parent"

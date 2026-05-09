@@ -25,8 +25,12 @@ FBWA320/CDUPIC/
 # ── Personal cockpit variant — private, do not publish ───────────────────
 FMC777_OWN/
 
-# ── iFly 737 MAX scaffold — server handler not yet wired, hold from public
-iFly737MAX/
+# ── iFly 737 MAX private dev notes (PLAN.md, CALIBRATION.md, raw SDK
+#    cross-reference) — Android sources publish from v0.4.0 onward, but
+#    the in-tree dev artefacts stay private. PMDG headers inside iFly737MAX/
+#    are caught by the global *.h rule below.
+iFly737MAX/PLAN.md
+iFly737MAX/CALIBRATION.md
 
 # ── FenixA320 private dev notes (never publish)
 FenixA320/Keys.txt
@@ -46,6 +50,7 @@ server_gui_old.py
 server_gui_test.py
 server_gui_backup_*.py
 fenix_handler.py
+ifly737max_handler.py
 compute_ng3_offsets.py
 FlightPadFMCServer.spec
 
@@ -93,6 +98,10 @@ Notes.txt
 Project_old.md
 CDU_Images/
 Product/
+Test/
+Wbsite.txt
+Server_Console.jpg
+tools/
 
 # ── Logs ────────────────────────────────────────────────────────────────
 FlightPadFMC_log.txt

@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -20,7 +19,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.RadioButton;
@@ -188,6 +186,13 @@ public class MainActivity extends Activity {
             }
 
             Log.d(TAG, "Settings saved: mode=" + mode + " ip=" + ip);
+            // User saved new settings — clear the in-flight guard so the
+            // fresh connect attempt can run. Without this, a pending mDNS
+            // discovery (15 s window) leaves isConnecting=true and the new
+            // call to startConnectionProcess() returns early. First-install
+            // users who switch to Manual IP would see no connection until
+            // they killed and relaunched the app.
+            isConnecting = false;
             startConnectionProcess();
         } catch (Exception e) {
             Log.e(TAG, "Error saving settings", e);
@@ -268,37 +273,7 @@ public class MainActivity extends Activity {
             }
         });
         builder.setNegativeButton(R.string.cancel, null);
-
-        final AlertDialog dialog = builder.create();
-        dialog.show();
-
-        // Calibrate buttons — full sweep + LEDs-only quick recalibration.
-        // findViewById can return null when the buttons are visibility="gone"
-        // in dialog_settings.xml; null-check keeps the click wiring safe in
-        // either state (visible during calibration pass, gone post-bake).
-        Button btnCalFull = dialogView.findViewById(R.id.btn_calibrate);
-        if (btnCalFull != null) {
-            btnCalFull.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    dialog.dismiss();
-                    Intent it = new Intent(MainActivity.this, CalibrateActivity737.class);
-                    it.putExtra(CalibrateActivity737.EXTRA_MODE, CalibrateActivity737.MODE_FULL);
-                    startActivity(it);
-                }
-            });
-        }
-
-        Button btnCalLeds = dialogView.findViewById(R.id.btn_calibrate_leds);
-        if (btnCalLeds != null) {
-            btnCalLeds.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    dialog.dismiss();
-                    Intent it = new Intent(MainActivity.this, CalibrateActivity737.class);
-                    it.putExtra(CalibrateActivity737.EXTRA_MODE, CalibrateActivity737.MODE_LEDS);
-                    startActivity(it);
-                }
-            });
-        }
+        builder.show();
     }
 
     private void resetScreen() {
@@ -430,6 +405,7 @@ public class MainActivity extends Activity {
                                 JSONObject identifyMsg = new JSONObject();
                                 identifyMsg.put("type", "identify");
                                 identifyMsg.put("aircraft", "737");  // This is the 737 app
+                                identifyMsg.put("version", BuildConfig.VERSION_NAME);  // server uses this for "Android app outdated" detection (v0.4.0+)
                                 ws.sendText(identifyMsg.toString());
                                 Log.d(TAG, "Sent aircraft identification to server: 737");
                             } catch (Exception e) {
@@ -488,6 +464,17 @@ public class MainActivity extends Activity {
                                         @Override
                                         public void run() {
                                             if (cduView != null) cduView.setLedState(ledOn);
+                                        }
+                                    });
+                                } else if (data.getString("type").equals("status_message")) {
+                                    // Server-pushed health overlay (v0.4.0). Reuses the v0.3.0
+                                    // setConnectionStatus amber-overlay API. Empty text = clear.
+                                    final String raw = data.optString("text", "");
+                                    final String overlay = raw.isEmpty() ? null : raw;
+                                    mainHandler.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            if (cduView != null) cduView.setConnectionStatus(overlay);
                                         }
                                     });
                                 }
@@ -649,9 +636,6 @@ public class MainActivity extends Activity {
         super.onResume();
         // Re-register WiFi callback + reconnect fresh when returning to foreground
         registerNetworkCallback();
-        // Re-read calibration prefs so changes from CalibrateActivity737
-        // (LED-only or full pass) take effect immediately without restart.
-        if (cduView != null) cduView.reloadCalibration(this);
         retryCount = 0;
         isConnecting = false;
         startConnectionProcess();

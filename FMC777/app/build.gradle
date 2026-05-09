@@ -10,8 +10,8 @@ android {
         applicationId "com.virtualfmc.fmc777"
         minSdk 19
         targetSdk 34
-        versionCode 2
-        versionName "0.3.0"
+        versionCode 3
+        versionName "0.4.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -25,7 +25,15 @@ android {
             minifyEnabled false
         }
     }
-    
+
+    // AGP 8+ requires explicit opt-in to BuildConfig generation. We read
+    // BuildConfig.VERSION_NAME in MainActivity so the identify message can
+    // tell the server which app version is connecting (drives the "Android
+    // app outdated" warning in the Server Console).
+    buildFeatures {
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
