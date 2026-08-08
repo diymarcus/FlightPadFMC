@@ -3,7 +3,7 @@
 ================================================================================
 
 Turn an Android tablet into a virtual FMC / CDU / MCDU for MSFS 2020/2024.
-Supports PMDG 737, PMDG 777, FlyByWire A320, and Fenix A320.
+Supports PMDG 737, PMDG 777, iFly 737 MAX, FlyByWire A320 and Fenix A320.
 
 This file is a quick install reference only. For full instructions,
 troubleshooting, options.ini paths, calibration, changelog, and credits,
@@ -18,8 +18,12 @@ WHAT'S IN THIS ARCHIVE
   FlightPadFMCServer.exe                -- runs on your Windows sim PC
   737PMDG.apk                           -- Android app for PMDG 737
   777PMDG.apk                           -- Android app for PMDG 777
+  777PMDG-Silence.apk                   -- PMDG 777 variant (bottom-pinned
+                                           skin, installs alongside 777PMDG)
+  iFly737MAX.apk                        -- Android app for iFly 737 MAX
   FBWA320.apk                           -- Android app for FlyByWire A320
   FenixA320.apk                         -- Android app for Fenix A320
+  SDK2020\ / SDK2024\                   -- SimConnect.dll for each sim
   README.md                             -- full documentation
   README.txt                            -- this file
   LICENSE                               -- MIT license
@@ -49,11 +53,25 @@ PMDG 737 / 777
         [SDK]
         EnableDataBroadcast=1
         EnableCDUBroadcast.0=1
+        EnableCDUBroadcast.1=1
+
+     (The .1 line enables the First Officer CDU used by the new
+     swipe-between-CDUs feature -- see WHAT'S NEW below.)
 
   3. Sideload 737PMDG.apk or 777PMDG.apk on your Android device.
 
   (As of v0.3.0, the MobiFlight WASM module is no longer needed for the
   PMDG 737 — all bezel annunciators read directly from the PMDG SDK.)
+
+
+IFLY 737 MAX
+------------
+  1. Install the iFly 737 MAX and make sure the "iFly Plugin" add-on is
+     enabled in MSFS Add-Ons (it ships with the iFly install).
+
+  2. Sideload iFly737MAX.apk on your Android device.
+
+  No PMDG SDK setup, no SimBridge, no MobiFlight needed.
 
 
 FLYBYWIRE A320
@@ -83,37 +101,32 @@ FENIX A320
 
 WHAT'S NEW IN THIS RELEASE
 --------------------------
-Version 0.3.0 -- May 2026
+Version 0.4.1 -- August 2026
 
   NEW:
-  + PMDG 737 NG3 bezel annunciators end-to-end -- MSG, OFST, CALL,
-    FAIL drawn on the keypad bezel alongside EXEC. Same pipeline as
-    the 777 annunciators. Captain CDU only.
-  + Server auto-close when MSFS exits -- opt-in setting, ~10 s
-    debounce. File -> Settings -> "Close server when MSFS exits".
-    Default OFF so existing behaviour is preserved.
-  + Optional auto-launch with MSFS via exe.xml -- see STEP 4 in
-    README.md. Pair with the new auto-close setting and the server
-    follows MSFS without any manual start/stop.
-  + 737 EXEC LED now reads via the PMDG NG3 SDK -- MobiFlight WASM
-    module no longer required for any aircraft.
-  + Fresh-client annunciator state replay on identify -- any
-    annunciator already lit when the Android app connects (notably
-    PMDG NG3 cold-and-dark MSG) appears immediately.
+  + Captain <-> FO CDU swipe (PMDG 737 + 777) -- swipe left on the CDU
+    display to switch to the First Officer's CDU, swipe right to return
+    to the Captain's. A green CAPT CDU / FO CDU label confirms the
+    switch. New "CDU Side" option in the app settings sets the default
+    side applied on every connect -- ideal for a dedicated FO tablet.
+    Two tablets can connect at once, one per seat.
+    REQUIRES EnableCDUBroadcast.1=1 in the aircraft's options.ini
+    (see the PMDG section above).
 
   IMPROVEMENTS:
-  + Activity log noticeably quieter -- three per-tick CDU-area
-    dispatch DEBUG lines removed. State changes still log at INFO.
-  + Calibration changes take effect immediately on return to the
-    CDU, no restart needed.
+  + Smarter "Android app outdated" check -- the server now tracks the
+    minimum compatible app version per aircraft. Only the PMDG 737 and
+    777 apps need the 0.4.1 update; the FBW A320, Fenix A320 and iFly
+    737 MAX 0.4.0 apps remain fully compatible.
 
   CHANGES:
-  + Server version bumped to 0.3.0; all 5 APKs bumped to
-    versionCode 2 / versionName "0.3.0".
+  + Server bumped to 0.4.1; PMDG 737 / 777 / 777-Silence APKs bumped
+    to versionCode 4 / versionName "0.4.1". FBW / Fenix / iFly APKs
+    unchanged from 0.4.0 -- no reinstall needed for those.
 
-  REMOVED:
-  - MobiFlight WASM Module dependency (and the bundled
-    Community/mobiflight-event-module/ folder -- no longer ships).
+Previous release (v0.4.0, May 2026): iFly 737 MAX support, automatic
+aircraft detection, the Server Console health panel, tablet-side status
+overlays, and a visual-polish round across all apps.
 
 For older versions, see the full CHANGELOG in README.md or:
   https://github.com/diymarcus/FlightPadFMC/releases

@@ -86,6 +86,34 @@
         android:checked="true"
         android:layout_marginBottom="16dp"/>
 
+    <!-- CDU Side (v0.4.1) — default side applied on every connect;
+         swiping the display switches sides temporarily without
+         changing this setting -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="CDU Side"
+        android:layout_marginBottom="8dp"/>
+
+    <RadioGroup
+        android:id="@+id/rg_side"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp">
+
+        <RadioButton
+            android:id="@+id/rb_capt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Captain CDU"/>
+
+        <RadioButton
+            android:id="@+id/rb_fo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="First Officer CDU"/>
+    </RadioGroup>
+
     <!-- Info Text (COMMENTED OUT - May be needed later)
     <TextView
         android:layout_width="match_parent"

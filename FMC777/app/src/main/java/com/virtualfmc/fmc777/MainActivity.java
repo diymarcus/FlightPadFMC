@@ -38,6 +38,7 @@ public class MainActivity extends Activity {
     private static final String KEY_PORT = "server_port";
     private static final String KEY_SOUND_ENABLED = "sound_enabled";
     private static final String KEY_HAPTIC_ENABLED = "haptic_enabled";
+    private static final String KEY_CDU_SIDE = "cdu_side";
 
     // Pre-parsed status colors
     private static final int COLOR_STATUS_CONNECTED = Color.parseColor("#00aa00");
@@ -86,6 +87,14 @@ public class MainActivity extends Activity {
     private final char[][] screenSymbols = new char[CDU_ROWS][CDU_COLS];
     private final int[][]  screenColors  = new int[CDU_ROWS][CDU_COLS];
 
+    // Which CDU this tablet is viewing (v0.4.1 Captain↔FO swipe).
+    // The server defaults to "capt" on identify; defaultCduSide (settings,
+    // persisted) is applied right after identify on every connect — so a
+    // dedicated FO tablet always comes up on the FO CDU. Swiping the display
+    // switches cduSide temporarily without touching the saved default.
+    private String cduSide = "capt";
+    private String defaultCduSide = "capt";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -119,6 +128,15 @@ public class MainActivity extends Activity {
                 public void onUIAction(String action) { handleUIAction(action); }
             });
 
+            // Captain↔FO swipe on the display area (v0.4.1):
+            // swipe left → FO CDU, swipe right → Captain CDU.
+            cduView.setSwipeListener(new CDUView.SwipeListener() {
+                @Override
+                public void onSwipe(boolean towardFo) {
+                    selectSide(towardFo ? "fo" : "capt");
+                }
+            });
+
             try {
                 nsdManager = (NsdManager) getSystemService(Context.NSD_SERVICE);
                 Log.d(TAG, "NSD Manager initialized");
@@ -147,6 +165,8 @@ public class MainActivity extends Activity {
             serverPort = prefs.getInt(KEY_PORT, 8765);
             boolean soundEnabled = prefs.getBoolean(KEY_SOUND_ENABLED, true);
             boolean hapticEnabled = prefs.getBoolean(KEY_HAPTIC_ENABLED, true);
+            defaultCduSide = prefs.getString(KEY_CDU_SIDE, "capt");
+            if (!defaultCduSide.equals("fo")) defaultCduSide = "capt";
 
             if (cduView != null) {
                 cduView.setSoundEnabled(soundEnabled);
@@ -159,7 +179,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void saveSettings(int mode, String ip, int port, boolean sound, boolean haptic) {
+    private void saveSettings(int mode, String ip, int port, boolean sound, boolean haptic, String side) {
         try {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
@@ -168,11 +188,16 @@ public class MainActivity extends Activity {
             editor.putInt(KEY_PORT, port);
             editor.putBoolean(KEY_SOUND_ENABLED, sound);
             editor.putBoolean(KEY_HAPTIC_ENABLED, haptic);
+            editor.putString(KEY_CDU_SIDE, side);
             editor.apply();
 
             connectionMode = mode;
             serverIp = ip;
             serverPort = port;
+            defaultCduSide = side;
+            // saveSettings always restarts the connection below, and
+            // onConnected applies defaultCduSide after identify — so the new
+            // side takes effect without a separate select_side send here.
             
             // User manually saved settings - reset retry count and guard flag for a fresh start
             retryCount = 0;
@@ -234,6 +259,8 @@ public class MainActivity extends Activity {
         final EditText etPort = dialogView.findViewById(R.id.et_port);
         final CheckBox cbSound = dialogView.findViewById(R.id.cb_sound);
         final CheckBox cbHaptic = dialogView.findViewById(R.id.cb_haptic);
+        final RadioButton rbCapt = dialogView.findViewById(R.id.rb_capt);
+        final RadioButton rbFo = dialogView.findViewById(R.id.rb_fo);
 
         if (connectionMode == 0) rbAuto.setChecked(true); else rbManual.setChecked(true);
         etIp.setText(serverIp);
@@ -241,9 +268,11 @@ public class MainActivity extends Activity {
 
         boolean soundEnabled = cduView != null && cduView.isSoundEnabled();
         cbSound.setChecked(soundEnabled);
-        
+
         boolean hapticEnabled = cduView != null && cduView.isHapticEnabled();
         cbHaptic.setChecked(hapticEnabled);
+
+        if (defaultCduSide.equals("fo")) rbFo.setChecked(true); else rbCapt.setChecked(true);
 
         builder.setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
             @Override
@@ -254,7 +283,8 @@ public class MainActivity extends Activity {
                 try { port = Integer.parseInt(etPort.getText().toString()); } catch (Exception e) {}
                 boolean sound = cbSound.isChecked();
                 boolean haptic = cbHaptic.isChecked();
-                saveSettings(mode, ip, port, sound, haptic);
+                String side = rbFo.isChecked() ? "fo" : "capt";
+                saveSettings(mode, ip, port, sound, haptic, side);
             }
         });
         builder.setNegativeButton(R.string.cancel, null);
@@ -364,7 +394,11 @@ public class MainActivity extends Activity {
                             isConnecting = false;
                             retryCount = 0;
                             updateStatus("Connected to " + serverIp);
-                            
+
+                            // Fresh connection always starts on the Captain CDU
+                            // (server-side default on identify) — v0.4.1.
+                            cduSide = "capt";
+
                             // Send aircraft type to server
                             try {
                                 JSONObject identifyMsg = new JSONObject();
@@ -375,6 +409,23 @@ public class MainActivity extends Activity {
                                 Log.d(TAG, "Sent aircraft identification to server: 777");
                             } catch (Exception e) {
                                 Log.e(TAG, "Error sending aircraft identification", e);
+                            }
+
+                            // Apply the saved default side (settings) — must go
+                            // AFTER identify so the server knows the aircraft
+                            // type when it replays the FO screen. Posted to the
+                            // main thread: onConnected runs on the WebSocket's
+                            // background thread, and showSideLabel's fade
+                            // animator can only start on a Looper thread —
+                            // called directly, the label sticks on screen
+                            // because the fade never starts.
+                            if (defaultCduSide.equals("fo")) {
+                                mainHandler.post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        selectSide("fo");
+                                    }
+                                });
                             }
                         }
                         @Override
@@ -387,6 +438,10 @@ public class MainActivity extends Activity {
                                 Log.d(TAG, "Received message type: " + type);
 
                                 if (type.equals("screen_update")) {
+                                    // v0.4.1: drop updates for the side we're not viewing.
+                                    // The server filters per-client, so this only catches
+                                    // messages already in flight when the side switched.
+                                    if (!data.optString("side", "capt").equals(cduSide)) return;
                                     Log.d(TAG, "Updating screen from screen_update");
                                     updateScreen(data.getJSONArray("screen"));
                                     // Update LED state if included in screen update
@@ -579,6 +634,30 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 Log.e(TAG, "Error sending key press", e);
             }
+        }
+    }
+
+    /** Switch the viewed CDU side (v0.4.1 Captain↔FO swipe). Sends
+     *  select_side to the server, which replays the cached screen +
+     *  annunciators for the new side. Re-selecting the current side just
+     *  re-flashes the label so the pilot gets feedback either way. */
+    private void selectSide(String side) {
+        final String label = side.equals("fo") ? "FO CDU" : "CAPT CDU";
+        if (side.equals(cduSide)) {
+            if (cduView != null) cduView.showSideLabel(label);
+            return;
+        }
+        if (webSocket == null || !webSocket.isOpen()) return;
+        try {
+            JSONObject msg = new JSONObject();
+            msg.put("type", "select_side");
+            msg.put("side", side);
+            webSocket.sendText(msg.toString());
+            cduSide = side;
+            if (cduView != null) cduView.showSideLabel(label);
+            Log.d(TAG, "CDU side -> " + side);
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending select_side", e);
         }
     }
 

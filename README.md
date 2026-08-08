@@ -1,6 +1,6 @@
 ================================================================================
   FlightPadFMC — Native Android FMC / MCDU for PMDG 737, PMDG 777, iFly 737 MAX, FlyByWire A320 & Fenix A320
-  Version 0.4.0
+  Version 0.4.1
   By SilenceDIY (Marcus)
   https://github.com/diymarcus/FlightPadFMC
 ================================================================================
@@ -138,6 +138,11 @@ In every case:
       [SDK]
       EnableDataBroadcast=1
       EnableCDUBroadcast.0=1
+      EnableCDUBroadcast.1=1
+    (The .0 line is the Captain CDU; the .1 line enables the First Officer
+     CDU feed used by the swipe-between-CDUs feature added in v0.4.1. If you
+     only ever use the Captain CDU you can leave .1 out, but it costs
+     nothing to enable.)
   - Save the file. IMPORTANT: make sure there is a blank line / trailing
     newline at the end — PMDG has been known to discard the [SDK] section
     if the file does not end cleanly.
@@ -389,6 +394,22 @@ Once connected, the CDU / MCDU screen appears and updates live. The server
 also fires a fake MENU key on connect, so the display is never blank.
 
 
+CAPTAIN / FO CDU  (PMDG 737 + 777 — new in v0.4.1)
+--------------------------------------------------
+  - Swipe LEFT on the CDU display area to switch to the First Officer's
+    CDU; swipe RIGHT to return to the Captain's. A green "FO CDU" /
+    "CAPT CDU" label flashes briefly to confirm which seat you're on.
+  - The in-app Settings has a new "CDU Side" option (Captain CDU /
+    First Officer CDU). The saved side is applied every time the app
+    connects — set it to First Officer for a dedicated FO tablet.
+    Swiping is a temporary override and does not change this setting.
+  - Dual-tablet cockpits: two devices can be connected at the same
+    time, one per seat. Screen, bezel annunciators and key presses all
+    follow each tablet's selected side independently.
+  - REQUIRES EnableCDUBroadcast.1=1 in the aircraft's options.ini (see
+    STEP 1). Without it, the FO screen stays blank after a swipe.
+
+
 USAGE TIPS
 ----------
   - Tap the gear icon on the skin to open in-app Settings.
@@ -410,6 +431,11 @@ TROUBLESHOOTING
     - As of v0.3.0 the MobiFlight WASM module is no longer used for any
       LED — if you still have it installed for other purposes that's
       fine, FlightPadFMC simply doesn't read from it anymore.
+
+  FO CDU blank after swiping (PMDG 737 / 777):
+    - Add EnableCDUBroadcast.1=1 to the aircraft's options.ini (STEP 1)
+      and restart MSFS. The .0 line only enables the Captain CDU feed;
+      the .1 line enables the First Officer's.
 
   CDU / MCDU screen not showing:
     - PMDG: verify PMDG SDK is enabled (Step 1) and MSFS was restarted.
@@ -510,6 +536,40 @@ CREDITS
 ================================================================================
   CHANGELOG
 ================================================================================
+
+Version 0.4.1 — August 2026
+---------------------------
+  NEW:
+  + Captain <-> FO CDU swipe (PMDG 737 + 777)
+      - Swipe left on the CDU display to switch to the First Officer's
+        CDU, swipe right to return to the Captain's. A green CAPT CDU /
+        FO CDU label flashes so you always know which seat you're on.
+      - New "CDU Side" setting in the Android app (Captain / First
+        Officer). The saved side is applied on every connect, so a
+        dedicated FO tablet always comes up on the FO CDU. Swiping is
+        a temporary override and never changes the saved setting.
+      - Dual-tablet support: two tablets can connect at once, one on
+        the Captain CDU and one on the FO CDU — screen, annunciators
+        and key input all follow each tablet's selected side.
+      - Requires EnableCDUBroadcast.1=1 in the aircraft's options.ini
+        (see STEP 1) — without it the FO screen stays blank.
+
+  IMPROVEMENTS:
+  + Smarter "Android app outdated" check — the server now tracks the
+      minimum compatible app version PER AIRCRAFT. Only the PMDG 737
+      and 777 apps need the 0.4.1 update; the FBW A320, Fenix A320 and
+      iFly 737 MAX 0.4.0 apps remain fully compatible and are no
+      longer flagged as outdated.
+
+  BUG FIXES:
+  - 777PMDG-Silence: skin pinned to the bottom edge again (regression
+    introduced in the v0.4.0 refactor — it was rendering centred).
+
+  CHANGES:
+  + Server version bumped to 0.4.1; PMDG 737 / 777 / 777-Silence APKs
+    bumped to versionCode 4 / versionName "0.4.1". The FBW A320,
+    Fenix A320 and iFly 737 MAX APKs are unchanged from 0.4.0 — no
+    reinstall needed for those.
 
 Version 0.4.0 — May 2026
 ------------------------

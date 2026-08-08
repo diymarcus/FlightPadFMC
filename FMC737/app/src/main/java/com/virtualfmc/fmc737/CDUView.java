@@ -225,6 +225,26 @@ public class CDUView extends View {
     private String connectionStatus = null;
     private final Paint statusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
+    // ─── Captain↔FO swipe (v0.4.1) ─────────────────────────────────────────────
+    // Horizontal swipe on the CDU DISPLAY area (never the bezel — buttons fire
+    // on ACTION_DOWN, so the gesture is restricted to the button-free screen
+    // rect). Swipe left → FO, swipe right → Captain.
+    public interface SwipeListener {
+        void onSwipe(boolean towardFo);
+    }
+    private SwipeListener swipeListener;
+    private float swipeStartX, swipeStartY;
+    private boolean swipeCandidate = false;
+    private static final float SWIPE_MIN_DX_FRACTION    = 0.20f; // of screen rect width
+    private static final float SWIPE_MAX_OFF_AXIS_RATIO = 0.6f;  // |dy| <= |dx| * this
+
+    // Transient side label ("CAPT CDU" / "FO CDU") — CDU-green, holds briefly
+    // then fades so the pilot knows which seat's CDU is on screen.
+    private String sideLabelText = null;
+    private int sideLabelAlpha = 0;
+    private ValueAnimator sideLabelAnimator = null;
+    private final Paint sideLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     private final RectF skinRectF = new RectF();
     private final RectF screenRect = new RectF();
     private final RectF actualScreen = new RectF();
@@ -341,9 +361,31 @@ public class CDUView extends View {
         annLabelPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
         annLabelPaint.setTextAlign(Paint.Align.CENTER);
 
+        sideLabelPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+        sideLabelPaint.setTextAlign(Paint.Align.CENTER);
+
         setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP
+                        || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                    // Captain↔FO swipe (v0.4.1) — resolve a gesture that
+                    // started on the display area. Mostly-horizontal drag of
+                    // at least SWIPE_MIN_DX_FRACTION of the screen width fires
+                    // the listener; anything else is ignored.
+                    if (swipeCandidate && event.getAction() == MotionEvent.ACTION_UP
+                            && swipeListener != null) {
+                        float dx = event.getX() - swipeStartX;
+                        float dy = event.getY() - swipeStartY;
+                        float minDx = actualScreen.width() * SWIPE_MIN_DX_FRACTION;
+                        if (Math.abs(dx) >= minDx
+                                && Math.abs(dy) <= Math.abs(dx) * SWIPE_MAX_OFF_AXIS_RATIO) {
+                            swipeListener.onSwipe(dx < 0);
+                        }
+                    }
+                    swipeCandidate = false;
+                    return true;
+                }
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
                     long currentTime = System.currentTimeMillis();
                     if (lastTouchTime > 0 && currentTime - lastTouchTime < TOUCH_DEBOUNCE_MS) {
@@ -360,6 +402,15 @@ public class CDUView extends View {
                             foundArea = ta;
                             break;
                         }
+                    }
+
+                    if (foundArea == null && actualScreen.contains(event.getX(), event.getY())) {
+                        // Button-free display area — arm the swipe tracker.
+                        swipeCandidate = true;
+                        swipeStartX = event.getX();
+                        swipeStartY = event.getY();
+                    } else {
+                        swipeCandidate = false;
                     }
 
                     if (foundArea != null) {
@@ -451,6 +502,38 @@ public class CDUView extends View {
 
     public void setKeyPressListener(KeyPressListener l) {
         keyListener = l;
+    }
+
+    /** Captain↔FO swipe callback (v0.4.1). Fired only for mostly-horizontal
+     *  swipes that start on the button-free CDU display area. */
+    public void setSwipeListener(SwipeListener l) {
+        swipeListener = l;
+    }
+
+    /** Flash a transient CDU-green side label ("CAPT CDU" / "FO CDU") over
+     *  the display: full brightness briefly, then a quick fade. Same
+     *  animator-swap ordering discipline as startPressAnimation() — assign
+     *  the new animator before cancelling the old one. */
+    public void showSideLabel(String text) {
+        ValueAnimator old = sideLabelAnimator;
+        sideLabelText = text;
+        sideLabelAlpha = 255;
+
+        ValueAnimator fade = ValueAnimator.ofInt(255, 0);
+        fade.setStartDelay(700);
+        fade.setDuration(400);
+        fade.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                if (sideLabelAnimator != animation) return; // superseded
+                sideLabelAlpha = (Integer) animation.getAnimatedValue();
+                postInvalidate();
+            }
+        });
+        sideLabelAnimator = fade;
+        if (old != null) old.cancel();
+        fade.start();
+        postInvalidate();
     }
 
     public void setSoundEnabled(boolean enabled) {
@@ -855,9 +938,20 @@ public class CDUView extends View {
             }
         }
 
+        drawSideLabel(canvas);
         drawLedIndicator(canvas);
         drawAnnunciators(canvas);
         drawPressOverlay(canvas);
+    }
+
+    /** Transient CDU-green side label drawn over the display centre —
+     *  Captain↔FO swipe feedback (v0.4.1). */
+    private void drawSideLabel(Canvas canvas) {
+        if (sideLabelText == null || sideLabelAlpha <= 0) return;
+        sideLabelPaint.setTextSize(actualScreen.height() * 0.11f);
+        sideLabelPaint.setColor(Color.argb(sideLabelAlpha, 0, 255, 0));
+        canvas.drawText(sideLabelText, actualScreen.centerX(),
+                        actualScreen.centerY(), sideLabelPaint);
     }
 
     /** Press overlay sized to the auto-detected button face. Shape comes from
