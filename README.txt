@@ -18,8 +18,6 @@ WHAT'S IN THIS ARCHIVE
   FlightPadFMCServer.exe                -- runs on your Windows sim PC
   737PMDG.apk                           -- Android app for PMDG 737
   777PMDG.apk                           -- Android app for PMDG 777
-  777PMDG-Silence.apk                   -- PMDG 777 variant (bottom-pinned
-                                           skin, installs alongside 777PMDG)
   iFly737MAX.apk                        -- Android app for iFly 737 MAX
   FBWA320.apk                           -- Android app for FlyByWire A320
   FenixA320.apk                         -- Android app for Fenix A320
@@ -120,7 +118,7 @@ Version 0.4.1 -- August 2026
     737 MAX 0.4.0 apps remain fully compatible.
 
   CHANGES:
-  + Server bumped to 0.4.1; PMDG 737 / 777 / 777-Silence APKs bumped
+  + Server bumped to 0.4.1; PMDG 737 / 777 APKs bumped
     to versionCode 4 / versionName "0.4.1". FBW / Fenix / iFly APKs
     unchanged from 0.4.0 -- no reinstall needed for those.
 

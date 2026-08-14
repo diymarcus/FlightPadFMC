@@ -561,12 +561,8 @@ Version 0.4.1 — August 2026
       iFly 737 MAX 0.4.0 apps remain fully compatible and are no
       longer flagged as outdated.
 
-  BUG FIXES:
-  - 777PMDG-Silence: skin pinned to the bottom edge again (regression
-    introduced in the v0.4.0 refactor — it was rendering centred).
-
   CHANGES:
-  + Server version bumped to 0.4.1; PMDG 737 / 777 / 777-Silence APKs
+  + Server version bumped to 0.4.1; PMDG 737 / 777 APKs
     bumped to versionCode 4 / versionName "0.4.1". The FBW A320,
     Fenix A320 and iFly 737 MAX APKs are unchanged from 0.4.0 — no
     reinstall needed for those.
