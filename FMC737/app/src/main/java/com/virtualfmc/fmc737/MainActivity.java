@@ -60,6 +60,11 @@ public class MainActivity extends Activity {
     private WebSocket webSocket;
     private Handler  mainHandler;
 
+    // True between onPause and onResume. Background threads and late
+    // callbacks (retry scheduler, in-flight connect thread, mDNS resolve)
+    // check this so a minimized app can never reconnect in the background.
+    private volatile boolean isPaused = false;
+
     private NsdManager nsdManager;
     private NsdManager.DiscoveryListener discoveryListener;
     private boolean isDiscoveryActive = false;
@@ -225,6 +230,7 @@ public class MainActivity extends Activity {
     }
 
     private synchronized void startConnectionProcess() {
+        if (isPaused) return;
         Log.d(TAG, "Starting connection process...");
 
         // Prevent multiple simultaneous connection attempts
@@ -386,6 +392,7 @@ public class MainActivity extends Activity {
     }
 
     private synchronized void connectToServer() {
+        if (isPaused) { isConnecting = false; return; }
         if (serverIp == null || serverIp.isEmpty()) {
             isConnecting = false;
             updateStatus("No server IP address set");
@@ -421,10 +428,12 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 try {
+                    if (isPaused) { isConnecting = false; return; }
                     webSocket = new WebSocketFactory().createSocket(url, 5000);
                     webSocket.addListener(new WebSocketAdapter() {
                         @Override
                         public void onConnected(WebSocket ws, java.util.Map<String,java.util.List<String>> h) {
+                            if (isPaused) { ws.disconnect(); return; } // connected after minimize — drop before identify
                             if (ws != webSocket) return; // Ignore old/replaced connections
                             isConnecting = false;
                             retryCount = 0;
@@ -562,6 +571,7 @@ public class MainActivity extends Activity {
     private void handleFailure(String reason) {
         isConnecting = false;
         webSocket = null;
+        if (isPaused) return; // minimized — no retry; onResume reconnects fresh
         retryCount++;
         Log.d(TAG, "Connection failed (attempt " + retryCount + "): " + reason);
 
@@ -694,6 +704,7 @@ public class MainActivity extends Activity {
 
     @Override protected void onPause() {
         super.onPause();
+        isPaused = true;  // gate: blocks retry scheduler / in-flight connect thread / late mDNS resolve
         // Disconnect fully when app goes to background — no background connection.
         // CRITICAL: unregister NetworkCallback FIRST so onAvailable() can't fire
         // after we've disconnected and re-trigger startConnectionProcess() while
@@ -713,6 +724,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        isPaused = false;
         // Re-register WiFi callback + reconnect fresh when returning to foreground
         registerNetworkCallback();
         retryCount = 0;
