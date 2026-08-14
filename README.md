@@ -3,6 +3,7 @@
   Version 0.4.1
   By SilenceDIY (Marcus)
   https://github.com/diymarcus/FlightPadFMC
+  https://silencediy.com/flight-pad-fmc-server
 ================================================================================
 
 DESCRIPTION
